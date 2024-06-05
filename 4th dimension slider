@@ -1,0 +1,46 @@
+
+
+library(plotly)
+setwd("C:/Users/lucab/Downloads")
+x <- readRDS("ees_beam_otter_pelagic_0.1.rds")
+
+# Create a 3D surface plot - just to show the data
+
+plot <- plot_ly(data = x, x = ~beam, y = ~otter, type = "heatmap", colorscale = "Viridis", zauto = FALSE, zmin = 0, z = ~yield)
+
+#this is so the slider can be used for different data, just need to change the value
+min_pelagic <- min(x$pelagic)  # Get the minimum value of 'pelagic'
+max_pelagic <- max(x$pelagic)  # Get the maximum value of 'pelagic'
+
+#this is necessary as some points are not exactly 0.1, so we need to set a tolerance
+tolerance <- 0.0001
+#here is calculation of the steps.
+steps <- lapply(seq(min_pelagic, max_pelagic, by = 0.1), function(step) {
+    filtered_data <- subset(x, abs(pelagic - step) < tolerance)  # Filter data based on 'pelagic' value
+    list(
+        method = "restyle",
+        args = list(
+            list(
+                z = list(filtered_data$yield)  # Update 'yield' values based on filtered data
+            )
+        ),
+        label = as.character(step)
+    )
+})
+
+# Create the plot with a slider - here is plotting data and slider
+plot <- plot_ly(data = x, x = ~beam, y = ~otter, type = "heatmap", colorscale = "Viridis", z = ~yield) %>%
+    layout(
+        sliders = list(
+            list(
+                active = 0,
+                currentvalue = list(prefix = "Pelagic: "),
+                steps = steps,
+                y = 1.2,  # Adjust the y position of the slider
+                len = 1  # Adjust the length of the slider
+            )
+        ),
+        margin = list(t = 100)  # Add a top margin to create a gap between the slider and the plot
+    )
+plot
+
