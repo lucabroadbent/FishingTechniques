@@ -13,43 +13,43 @@ ui <- fluidPage(
     titlePanel("Mizer Model App"),
     tabsetPanel(
         tabPanel("Species",
-                         sidebarLayout(
-                             sidebarPanel(
-                                 sliderInput("species", "Herring", min = 0, max = 1, value = 1, step = 0.01),
-                                 sliderInput("year", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1)
-                             ),
-                             mainPanel(
-                                 tabsetPanel(
-                                     tabPanel("Change in Species", plotOutput("speciesPlot")),
-                                     tabPanel("Change in Size", plotOutput("sizePlot")),
-                                     tabPanel("Guilds", plotOutput("guildPlot"))
-                                 )
-                             )
-                         )
+            sidebarLayout(
+                sidebarPanel(
+                    sliderInput("species", "Herring", min = 0, max = 1, value = 1, step = 0.01),
+                    sliderInput("year", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1)
+                ),
+                mainPanel(
+                    tabsetPanel(
+                        tabPanel("Change in Species", plotOutput("speciesPlot")),
+                        tabPanel("Change in Size", plotOutput("sizePlot")),
+                        tabPanel("Guilds", plotOutput("guildPlot"))
+                    )
+                )
+            )
         ),
         tabPanel("Fishing",
-                         sidebarLayout(
-                             sidebarPanel(
-                                 sliderInput("year", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1),
-                                 sliderInput("industrial", "Commercial", min = 0, max = 1, value = 0.5, step = 0.1),
-                                 sliderInput("pelagic", "Pelagic", min = 0, max = 1, value = 0.5, step = 0.1),
-                                 sliderInput("beam", "Beam", min = 0, max = 1, value = 0.5, step = 0.1),
-                                 sliderInput("otter", "Otter", min = 0, max = 1, value = 0.5, step = 0.1)
-                             ),
-                             mainPanel(
-                                 tabsetPanel(
-                                     tabPanel("Yield", plotOutput("yieldPlot")),
-                                     tabPanel("Spectra", plotOutput("spectrumPlot"))
-                                 )
-                             )
-                         )
+            sidebarLayout(
+                sidebarPanel(
+                    sliderInput("year", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1),
+                    sliderInput("industrial", "Commercial", min = 0, max = 1, value = 0.5, step = 0.1),
+                    sliderInput("pelagic", "Pelagic", min = 0, max = 1, value = 0.5, step = 0.1),
+                    sliderInput("beam", "Beam", min = 0, max = 1, value = 0.5, step = 0.1),
+                    sliderInput("otter", "Otter", min = 0, max = 1, value = 0.5, step = 0.1)
+                ),
+                mainPanel(
+                    tabsetPanel(
+                        tabPanel("Yield", plotOutput("yieldPlot")),
+                        tabPanel("Spectra", plotOutput("spectrumPlot"))
+                    )
+                )
+            )
         )
     )
 )
 
 # Define the server
 server <- function(input, output) {
-    # Reactive function to calculate the abundance size spectrum and yield size spectrum based on the fishing effort
+    # Reactive function to calculate the abundance size spectrum and yield size spectrum based on the fishing effort.
     spectra <- reactive({
         effort <- c(commercial = input$industrial, pelagic = input$pelagic, beam = input$beam, otter = input$otter)
         projection <- project(celticsim, effort = effort)
@@ -72,16 +72,21 @@ server <- function(input, output) {
     # This is for the initial abundance of all species
     specieschange <- reactive({
         speciessim <- celticsim
-        unharvestedprojection <- project(celticsim, effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0), t_max = input$year[2])
+        unharvestedprojection <- project(celticsim,
+                                         effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0),
+                                         t_max = input$year[2])
         unharvested <- plotSpectra(unharvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
         speciessim@initial_n["Herring", ] <- speciessim@initial_n["Herring", ] * input$species
-        harvestedprojection <- project(speciessim, effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0), t_max = input$year[2])
+        harvestedprojection <- project(speciessim,
+                                       effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0),
+                                       t_max = input$year[2])
         harvested <- plotSpectra(harvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
 
         harvested2 <- harvested
         unharvested2 <- unharvested
 
-        # This next function separates the size spectrum into bins so that the effect of changing one species is observed on a community level
+        # This next function separates the size spectrum into bins
+        #so that the effect of changing one species is observed on a community level
         create_log_bins <- function(data, column, bins = 10) {
             # Calculate logarithmically spaced breaks
             breaks <- exp(seq(log(min(data[[column]])), log(max(data[[column]])), length.out = bins + 1))
@@ -120,7 +125,8 @@ server <- function(input, output) {
         percentage_diffbinned$percentage_diff <- percentage_diffbinned$percentage_diff - 100
         # Plot the percentage change in each bin
 
-        sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight), y = percentage_diff, fill = factor(avg_weight))) +
+        sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight),
+                                                       y = percentage_diff, fill = factor(avg_weight))) +
             geom_bar(stat = "identity") +
             labs(title = "Average Percentage Change by Size", x = "Average Weight", y = "Percentage Change") +
             theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
@@ -151,26 +157,30 @@ server <- function(input, output) {
             group_by(w) %>%
             summarise(Value = mean(value)) %>%
             mutate(size_category = cut(log10(w),
-                                                                breaks = quantile(log10(w), probs = seq(0, 1, by = 1/3), na.rm = TRUE),
-                                                                labels = c("small", "medium", "large"),
-                                                                include.lowest = TRUE),
-                         Guild = "Planktivorous")
+                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                       labels = c("small", "medium", "large"),
+                                       include.lowest = TRUE),
+                   Guild = "Planktivorous")
         benth <- harvested2 %>%
             filter(Species %in% c("Poor Cod", "Common Dab", "Plaice", "Sole")) %>%
-            group_by(w) %>% summarise(Value = mean(value)) %>%
+            group_by(w) %>%
+            summarise(Value = mean(value)) %>%
             mutate(size_category = cut(log10(w),
-                                                                breaks = quantile(log10(w), probs = seq(0, 1, by = 1/3), na.rm = TRUE),
-                                                                labels = c("small", "medium", "large"),
-                                                                include.lowest = TRUE),
-                         Guild = "Benthic")
+                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                       labels = c("small", "medium", "large"),
+                                       include.lowest = TRUE),
+                   Guild = "Benthic")
         pisco <- harvested2 %>%
-            filter(Species %in% c("Cod", "Haddock", "Whiting", "European Hake", "Monkfish", "Horse Mackerel", "Megrim")) %>%
-            group_by(w) %>% summarise(Value = mean(value)) %>%
+            filter(Species %in%
+                       c("Cod", "Haddock", "Whiting", "European Hake",
+                         "Monkfish", "Horse Mackerel", "Megrim")) %>%
+            group_by(w) %>%
+            summarise(Value = mean(value)) %>%
             mutate(size_category = cut(log10(w),
-                                                                breaks = quantile(log10(w), probs = seq(0, 1, by = 1/3), na.rm = TRUE),
-                                                                labels = c("small", "medium", "large"),
-                                                                include.lowest = TRUE),
-                         Guild = "Piscovorous")
+                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                       labels = c("small", "medium", "large"),
+                                       include.lowest = TRUE),
+                   Guild = "Piscovorous")
         # Combine
         guilds <- rbind(plank, benth, pisco)
         # Calculate the percentage change in each guild
@@ -179,26 +189,29 @@ server <- function(input, output) {
             group_by(w) %>%
             summarise(Value = mean(value)) %>%
             mutate(size_category = cut(log10(w),
-                                                                breaks = quantile(log10(w), probs = seq(0, 1, by = 1/3), na.rm = TRUE),
-                                                                labels = c("small", "medium", "large"),
-                                                                include.lowest = TRUE),
-                         Guild = "Planktivorous")
+                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                       labels = c("small", "medium", "large"),
+                                       include.lowest = TRUE),
+                   Guild = "Planktivorous")
         unharvestedbenth <- unharvested2 %>%
             filter(Species %in% c("Poor Cod", "Common Dab", "Plaice", "Sole")) %>%
-            group_by(w) %>% summarise(Value = mean(value)) %>%
+            group_by(w) %>%
+            summarise(Value = mean(value)) %>%
             mutate(size_category = cut(log10(w),
-                                                                breaks = quantile(log10(w), probs = seq(0, 1, by = 1/3), na.rm = TRUE),
-                                                                labels = c("small", "medium", "large"),
-                                                                include.lowest = TRUE),
-                         Guild = "Benthic")
+                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                       labels = c("small", "medium", "large"),
+                                       include.lowest = TRUE),
+                   Guild = "Benthic")
         unharvestedpisco <- unharvested2 %>%
-            filter(Species %in% c("Cod", "Haddock", "Whiting", "European Hake", "Monkfish", "Horse Mackerel", "Megrim")) %>%
-            group_by(w) %>% summarise(Value = mean(value)) %>%
+            filter(Species %in%
+                       c("Cod", "Haddock", "Whiting", "European Hake",
+                         "Monkfish", "Horse Mackerel", "Megrim")) %>%
+            summarise(Value = mean(value)) %>%
             mutate(size_category = cut(log10(w),
-                                                                breaks = quantile(log10(w), probs = seq(0, 1, by = 1/3), na.rm = TRUE),
-                                                                labels = c("small", "medium", "large"),
-                                                                include.lowest = TRUE),
-                         Guild = "Piscovorous")
+                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                       labels = c("small", "medium", "large"),
+                                       include.lowest = TRUE),
+                   Guild = "Piscovorous")
         # Combine
         unguilds <- rbind(unharvestedplank, unharvestedbenth, unharvestedpisco)
         # Calculate the percentage change in each guild
@@ -208,12 +221,12 @@ server <- function(input, output) {
 
         percentage_diffguilds <- percentage_diffguilds %>%
             group_by(Guild, size_category) %>%
-            summarise(percentage_diff = mean(percentage_diff, na.rm = TRUE), .groups = 'drop')
+            summarise(percentage_diff = mean(percentage_diff, na.rm = TRUE), .groups = "drop")
 
         percentage_diffguilds$percentage_diff <- percentage_diffguilds$percentage_diff - 100
 
         # Plot the percentage change in each guild
-        guildlevel <- ggplot(percentage_diffguilds, aes(x = size_category, y = percentage_diff, fill = Guild)) +
+        guildlevel <- ggplot(percentage_diffguilds, aes(x = size_category, y = percentage_diff, fill = Guild)) + # nolint
             geom_bar(stat = "identity", position = "dodge") +
             labs(title = "Average Percentage Change by Guild", x = "Size Category", y = "Percentage Change") +
             theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))

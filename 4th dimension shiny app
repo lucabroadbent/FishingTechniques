@@ -1,0 +1,92 @@
+library(shiny)
+library(mizer)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+
+
+setwd("C:/Users/lucab/Downloads")
+data <- readRDS("ees_beam_otter_pelagic_0.1.rds")
+
+head(data)
+
+unharvested <- subset(data, otter == 0 & beam == 0 & pelagic == 0)
+
+
+ui <- fluidPage(
+    titlePanel("Fishing Techniques"),
+    tabsetPanel(
+        tabPanel("Yield Range",
+            sidebarLayout(
+                sidebarPanel(
+                    sliderInput("yield_range", "Yield Range",
+                                min = min(data$yield), 
+                                max = max(data$yield),
+                                value = c(min(data$yield), max(data$yield)),
+                                step = 0.1
+                    )
+                ),
+                mainPanel(
+                    plotlyOutput("plot")
+                )
+            )
+        ),
+        tabPanel("Otter Range",
+            sliderInput("otter_range", "Otter Range",
+                        min = min(data$otter),
+                        max = max(data$otter),
+                        value = c(min(data$otter), max(data$otter)),
+                        step = 0.01
+            ),
+            mainPanel(
+                plotlyOutput("spectra")
+            )
+        )
+    )
+)
+
+server <- function(input, output) {
+    output$plot <- renderPlotly({
+        filtered_data <- subset(data, yield >= input$yield_range[1] & yield <= input$yield_range[2])
+
+        plot <- plot_ly(filtered_data, x = ~otter, y = ~beam, z = ~pelagic, color = ~yield,
+                        type = "scatter3d", mode = "markers",
+                        marker = list(size = 4, opacity = 0.5))
+
+        plot <- plot %>% layout(scene = list(xaxis = list(title = "Otter", range = c(min(data$otter), max(data$otter))),
+                                    yaxis = list(title = "Beam", range = c(min(data$beam), max(data$beam))), 
+                                    zaxis = list(title = "Pelagic", range = c(min(data$pelagic), max(data$pelagic)))))
+
+
+        plot
+    })
+    output$spectra <- renderPlotly({
+        filtered_spectra <- subset(data, otter >= input$otter_range[1] & otter <= input$otter_range[2])
+
+        #this function takes all the spectra within the range and calculates the mean
+        #problem is that this takes ages
+        meanspectra <- function(n) {
+            col_means <- c()
+            for(i in seq_along(n)){
+                col_means2 <- colMeans(n[[i]])
+                col_means <- c(col_means, col_means2)
+            }
+            finalmean <- colMeans(n[[i]])
+            finalmean2 <- t(rbind(w = rownames(finalmean), finalmean))
+            finalmean2 <- data.frame(w = as.numeric(rownames(finalmean2)), finalmean2)
+            return(as.data.frame(finalmean2))
+        }
+
+        result <- meanspectra(filtered_spectra$n)
+print(head(result))
+        spectra <- ggplot(result, aes(x = w, y = finalmean)) +
+            geom_line() +
+            scale_x_log10() +
+            scale_y_log10() +
+            labs(x = "size", y = "biomass")
+        spectra
+    })
+}
+
+
+shinyApp(ui, server)
