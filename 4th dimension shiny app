@@ -3,15 +3,51 @@ library(mizer)
 library(ggplot2)
 library(dplyr)
 library(plotly)
+library(dplyr)
+library(tibble)
+library(plotly)
 
-
+#reading in the data and taking a sample as it takes too long to calculate normally
 setwd("C:/Users/lucab/Downloads")
 data <- readRDS("ees_beam_otter_pelagic_0.1.rds")
-
+datasample <-  data[sample(nrow(data), 1000),]
 head(data)
 
-unharvested <- subset(data, otter == 0 & beam == 0 & pelagic == 0)
+#this next bit just calculates the unharvested, and the spectra of the unharvested
 
+unharvested <- subset(data, otter == 0 & beam == 0 & pelagic == 0)
+unharvested <- unmeanspectra(unharvested$n)
+#you have to do the order right, to use unharvested with meanspecies
+#calculating the unharvested species
+
+spunharvested <- unharvested$n
+spunharvested <- meanspecies(spunharvested)
+colnames(spunharvested)[1] <- "un"
+
+
+
+#this is just testing how to calculate the percentage change.
+
+harvested <- meanspecies(datasample$n)
+both <- cbind(harvested, spunharvested)
+
+# calculating the percentage difference
+percentage_diff_df <- data.frame(finalmeansp = (both$finalmeansp - both$un) / both$un * 100, row.names = rownames(harvested))
+
+
+
+#same function, but this works for the unharvested data
+ unmeanspectra <- function(n) {
+            col_means <- c()
+            for(i in seq_along(n)){
+                col_means2 <- colMeans(n[[i]])
+                col_means <- c(col_means, col_means2)
+                finalmean <- colMeans(n[[i]])
+}
+            finalmean2 <- t(rbind(w = rownames(finalmean), finalmean))
+            finalmean2 <- data.frame(w = as.numeric(rownames(finalmean2)), finalmean2)
+            return(as.data.frame(finalmean2))
+        }
 
 ui <- fluidPage(
     titlePanel("Fishing Techniques"),
@@ -32,61 +68,132 @@ ui <- fluidPage(
             )
         ),
         tabPanel("Otter Range",
-            sliderInput("otter_range", "Otter Range",
-                        min = min(data$otter),
-                        max = max(data$otter),
-                        value = c(min(data$otter), max(data$otter)),
-                        step = 0.01
-            ),
-            mainPanel(
-                plotlyOutput("spectra")
-            )
-        )
+           sidebarLayout(
+             sidebarPanel(
+               sliderInput("otter_range", "Otter Range",
+                           min = min(data$otter),
+                           max = max(data$otter),
+                           value = c(min(data$otter), max(data$otter)),
+                           step = 0.01
+               ),
+               sliderInput("beam_range", "Beam Range",
+                           min = min(data$beam),
+                           max = max(data$beam),
+                           value = c(min(data$beam), max(data$beam)),
+                           step = 0.01
+               ),
+               sliderInput("pelagic_range", "Pelagic Range",
+                           min = min(data$pelagic),
+                           max = max(data$pelagic),
+                           value = c(min(data$pelagic), max(data$pelagic)),
+                           step = 0.01
+               )
+             ),
+             mainPanel(
+                tabsetPanel(
+                 tabPanel("Species Level",
+                    plotlyOutput("specieslevel")
+                 ),
+                 tabPanel("Spectra",
+                    plotlyOutput("spectra")
+                 )
+                )
+             )
+           )
+  )
     )
 )
 
 server <- function(input, output) {
-    output$plot <- renderPlotly({
-        filtered_data <- subset(data, yield >= input$yield_range[1] & yield <= input$yield_range[2])
+  
+  filtered_spectra <- reactive({
+    
+    filtered <- subset(datasample, 
+                      otter >= input$otter_range[1] & otter <= input$otter_range[2] &
+                      beam >= input$beam_range[1] & beam <= input$beam_range[2] &
+                      pelagic >= input$pelagic_range[1] & pelagic <= input$pelagic_range[2])
+    
+    return(filtered)
+  })
 
-        plot <- plot_ly(filtered_data, x = ~otter, y = ~beam, z = ~pelagic, color = ~yield,
-                        type = "scatter3d", mode = "markers",
-                        marker = list(size = 4, opacity = 0.5))
+  output$plot <- renderPlotly({
+    filtered_data <- filtered_spectra()
+    
+    plot <- plot_ly(filtered_data, x = ~otter, y = ~beam, z = ~pelagic, color = ~yield,
+                    type = "scatter3d", mode = "markers",
+                    marker = list(size = 4, opacity = 0.5))
+    
+    plot <- plot %>% layout(scene = list(xaxis = list(title = "Otter", range = c(min(data$otter), max(data$otter))),
+                                         yaxis = list(title = "Beam", range = c(min(data$beam), max(data$beam))), 
+                                         zaxis = list(title = "Pelagic", range = c(min(data$pelagic), max(data$pelagic)))))
+    
+    return(plot)
+  })
+  
+  specieschange <- reactive({
+    filtered_data <- filtered_spectra()
+    
+    meanspecies <- function(n) {
+                row_means <- c()
+                for(i in seq_along(n)){
+                    row_means <- rbind(row_means, t(rowMeans(n[[i]])))
+                }
 
-        plot <- plot %>% layout(scene = list(xaxis = list(title = "Otter", range = c(min(data$otter), max(data$otter))),
-                                    yaxis = list(title = "Beam", range = c(min(data$beam), max(data$beam))), 
-                                    zaxis = list(title = "Pelagic", range = c(min(data$pelagic), max(data$pelagic)))))
+                finalmeansp <- colMeans(row_means)
 
-
-        plot
-    })
-    output$spectra <- renderPlotly({
-        filtered_spectra <- subset(data, otter >= input$otter_range[1] & otter <= input$otter_range[2])
-
-        #this function takes all the spectra within the range and calculates the mean
-        #problem is that this takes ages
-        meanspectra <- function(n) {
-            col_means <- c()
-            for(i in seq_along(n)){
-                col_means2 <- colMeans(n[[i]])
-                col_means <- c(col_means, col_means2)
+                return(as.data.frame(finalmeansp))
             }
-            finalmean <- colMeans(n[[i]])
-            finalmean2 <- t(rbind(w = rownames(finalmean), finalmean))
-            finalmean2 <- data.frame(w = as.numeric(rownames(finalmean2)), finalmean2)
-            return(as.data.frame(finalmean2))
-        }
+    
+    meanspecies_df <- meanspecies(filtered_data$n)
 
-        result <- meanspectra(filtered_spectra$n)
-print(head(result))
-        spectra <- ggplot(result, aes(x = w, y = finalmean)) +
-            geom_line() +
-            scale_x_log10() +
-            scale_y_log10() +
-            labs(x = "size", y = "biomass")
-        spectra
-    })
+    both <- cbind(meanspecies_df, spunharvested)
+
+    meanspecies_df <- data.frame(finalmeansp = (both$finalmeansp - both$un) / both$un * 100, row.names = rownames(meanspecies_df))
+
+    specieslevel <- ggplot(meanspecies_df, aes(x = rownames(meanspecies_df), y = finalmeansp)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Average Percentage Change by Species", x = "Species", y = "Percentage Change") +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+    meanspectra <- function(n) {    
+                col_means <- c()
+                for(i in seq_along(n)){
+                    col_means <- rbind(col_means, colMeans(n[[i]]))
+                }
+                #print(head(col_means))
+                finalmean <- colMeans(as.data.frame(col_means))
+                #print(finalmean)
+                #finalmean2 <- t(rbind(w = rownames(finalmean), finalmean))
+                #finalmean2 <- data.frame(w = as.numeric(rownames(finalmean2)), finalmean2)
+                return(as.data.frame(finalmean))
+            }
+    
+    spectra_df <- meanspectra(filtered_data$n)
+    spectra_df$w <- rownames(spectra_df)
+    spectra <- ggplot(spectra_df, aes(x = as.numeric(w), y = finalmean)) +
+      geom_line() +
+      scale_x_log10() +
+      scale_y_log10() +
+      labs(x = "size", y = "biomass")
+    
+    list(specieslevel = specieslevel, spectra = spectra)
+  })
+  
+  output$specieslevel <- renderPlotly({
+    specieschange()$specieslevel
+  })
+
+  output$spectra<- renderPlotly({
+    specieschange()$spectra
+  })
 }
 
-
 shinyApp(ui, server)
+
+#to do stuff.
+#need to change the plot, as it doesnt work right now.
+#and i dont think that the species stuff or spectra works properly, so fix that, and make code nicer
+
+
+#to get it to work, and to take the correct thing out of the AsIs, you need to take the row out n[[1]]
+
