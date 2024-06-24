@@ -3,10 +3,12 @@ library(mizer)
 library(ggplot2)
 library(dplyr)
 library(plotly)
-
+library(styler)
 # Load the mizer model
 setwd("C:/Users/lucab/OneDrive/Desktop/Shiny")
 celticsim <- readRDS("Celtic_16_untuned.rds")
+
+style_file("C:/Users/lucab/OneDrive/Desktop/Shiny/CelticSeaApp.r")
 
 # Define the UI
 ui <- fluidPage(
@@ -151,82 +153,84 @@ server <- function(input, output) {
         # This next section will be for the guilds, and the percentage change in each guild
 
         # Firstly, I need to extract the size spectrum for each guild
-
         plank <- harvested2 %>%
             filter(Species %in% c("Herring", "Sprat", "Blue whiting", "Norway pout", "Mackerel")) %>%
-            group_by(w) %>%
-            summarise(Value = mean(value)) %>%
-            mutate(size_category = cut(log10(w),
-                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
-                                       labels = c("small", "medium", "large"),
-                                       include.lowest = TRUE),
-                   Guild = "Planktivorous")
-        benth <- harvested2 %>%
-            filter(Species %in% c("Poor Cod", "Common Dab", "Plaice", "Sole")) %>%
-            group_by(w) %>%
-            summarise(Value = mean(value)) %>%
-            mutate(size_category = cut(log10(w),
-                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
-                                       labels = c("small", "medium", "large"),
-                                       include.lowest = TRUE),
-                   Guild = "Benthic")
-        pisco <- harvested2 %>%
-            filter(Species %in%
-                       c("Cod", "Haddock", "Whiting", "European Hake",
-                         "Monkfish", "Horse Mackerel", "Megrim")) %>%
-            group_by(w) %>%
-            summarise(Value = mean(value)) %>%
-            mutate(size_category = cut(log10(w),
-                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
-                                       labels = c("small", "medium", "large"),
-                                       include.lowest = TRUE),
-                   Guild = "Piscovorous")
+  mutate(log_w = log10(w),
+         size_category = cut(log_w,
+                             breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                             labels = c("small", "medium", "large"),
+                             include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Planktivorous")
+
+benth <- harvested2 %>%
+    filter(Species %in% c("Poor Cod", "Common Dab", "Plaice", "Sole")) %>%
+    mutate(log_w = log10(w),
+         size_category = cut(log_w,
+                             breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                             labels = c("small", "medium", "large"),
+                             include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Benthic")
+
+pisco <- harvested2 %>%
+    filter(Species %in%
+               c("Cod", "Haddock", "Whiting", "European Hake",
+             "Monkfish", "Horse Mackerel", "Megrim")) %>%
+    mutate(log_w = log10(w),
+            size_category = cut(log_w,
+                                breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                labels = c("small", "medium", "large"),
+                                include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Piscovorous")
+
         # Combine
         guilds <- rbind(plank, benth, pisco)
         # Calculate the percentage change in each guild
-        unharvestedplank <- unharvested2 %>%
-            filter(Species %in% c("Herring", "Sprat", "Blue whiting", "Norway pout", "Mackerel")) %>%
-            group_by(w) %>%
-            summarise(Value = mean(value)) %>%
-            mutate(size_category = cut(log10(w),
-                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
-                                       labels = c("small", "medium", "large"),
-                                       include.lowest = TRUE),
-                   Guild = "Planktivorous")
-        unharvestedbenth <- unharvested2 %>%
-            filter(Species %in% c("Poor Cod", "Common Dab", "Plaice", "Sole")) %>%
-            group_by(w) %>%
-            summarise(Value = mean(value)) %>%
-            mutate(size_category = cut(log10(w),
-                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
-                                       labels = c("small", "medium", "large"),
-                                       include.lowest = TRUE),
-                   Guild = "Benthic")
-        unharvestedpisco <- unharvested2 %>%
-            filter(Species %in%
-                       c("Cod", "Haddock", "Whiting", "European Hake",
-                         "Monkfish", "Horse Mackerel", "Megrim")) %>%
-            summarise(Value = mean(value)) %>%
-            mutate(size_category = cut(log10(w),
-                                       breaks = quantile(log10(w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
-                                       labels = c("small", "medium", "large"),
-                                       include.lowest = TRUE),
-                   Guild = "Piscovorous")
+        unharvestedplank <- unharvested2%>%
+  filter(Species %in% c("Herring", "Sprat", "Blue whiting", "Norway pout", "Mackerel")) %>%
+  mutate(log_w = log10(w),
+         size_category = cut(log_w,
+                             breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                             labels = c("small", "medium", "large"),
+                             include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Planktivorous")
+
+       unharvestedbenth <- unharvested2 %>%
+    filter(Species %in% c("Poor Cod", "Common Dab", "Plaice", "Sole")) %>%
+    mutate(log_w = log10(w),
+         size_category = cut(log_w,
+                             breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                             labels = c("small", "medium", "large"),
+                             include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Benthic")
+
+    unharvestedpisco <- unharvested2 %>%
+    filter(Species %in%
+               c("Cod", "Haddock", "Whiting", "European Hake",
+             "Monkfish", "Horse Mackerel", "Megrim")) %>%
+    mutate(log_w = log10(w),
+            size_category = cut(log_w,
+                                breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                                labels = c("small", "medium", "large"),
+                                include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Piscovorous") 
+
         # Combine
         unguilds <- rbind(unharvestedplank, unharvestedbenth, unharvestedpisco)
-        # Calculate the percentage change in each guild
-        percentage_diffguilds <- guilds %>%
-            left_join(unguilds, by = c("w", "size_category", "Guild")) %>%
-            mutate(percentage_diff = (Value.x / Value.y) * 100)
 
-        percentage_diffguilds <- percentage_diffguilds %>%
-            group_by(Guild, size_category) %>%
-            summarise(percentage_diff = mean(percentage_diff, na.rm = TRUE), .groups = "drop")
+        merged_df <- guilds %>%
+            inner_join(unguilds, by = c("size_category", "Guild"), suffix = c("_guilds", "_unguilds"))
 
-        percentage_diffguilds$percentage_diff <- percentage_diffguilds$percentage_diff - 100
+        percentage_diffguilds <- merged_df %>%
+            mutate(percentage_diff = ((mean_value_guilds - mean_value_unguilds) / mean_value_unguilds) * 100)
 
         # Plot the percentage change in each guild
-        guildlevel <- ggplot(percentage_diffguilds, aes(x = size_category, y = percentage_diff, fill = Guild)) + # nolint
+        guildlevel <- ggplot(percentage_diffguilds, aes(x = Guild, y = percentage_diff, fill = size_category)) + # nolint
             geom_bar(stat = "identity", position = "dodge") +
             labs(title = "Average Percentage Change by Guild", x = "Size Category", y = "Percentage Change") +
             theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
@@ -249,3 +253,29 @@ server <- function(input, output) {
 
 # Run the app
 shinyApp(ui = ui, server = server)
+
+
+
+test<-project(celticsim, effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0))
+
+unharvested <- plotSpectra(test, return_data = TRUE)
+
+unharvestedpisco <- unharvested %>%
+            filter(Species %in%
+               c("Cod", "Haddock", "Whiting", "European Hake",
+             "Monkfish", "Horse Mackerel", "Megrim")) %>%
+            summarise(Value = mean(value)) %>%
+            mutate(size_category = cut(log10(unharvested$w),
+                   breaks = quantile(log10(unharvested$w), probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                   labels = c("small", "medium", "large"),
+                   include.lowest = TRUE),
+               Guild = "Piscovorous")
+unharvestedpisco <- unharvested %>%
+  filter(Species %in% c("Cod", "Haddock", "Whiting", "European Hake", "Monkfish", "Horse Mackerel", "Megrim")) %>%
+  mutate(log_w = log10(w),
+         size_category = cut(log_w,
+                             breaks = quantile(log_w, probs = seq(0, 1, by = 1 / 3), na.rm = TRUE),
+                             labels = c("small", "medium", "large"),
+                             include.lowest = TRUE)) %>%
+    group_by(size_category) %>%
+    summarise(mean_value = mean(value, na.rm = TRUE), Guild = "Piscovorous")
