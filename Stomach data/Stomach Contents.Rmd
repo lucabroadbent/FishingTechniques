@@ -1,0 +1,175 @@
+---
+title: "Stomach Data Exploration"
+output: html_document
+date: "2024-06-24"
+---
+
+## Compiling Data
+
+Firstly, I am checking that PPMR is the same, irrespective of predator size and of region. So, I am 
+going to include all DAPSTOM data, all anchovy and sardine data, and all ICES data. Then, I will go 
+check that PPMR is equal across predator sizes.
+
+
+```{r}
+#packages
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+#reading in the data
+
+#ICES/DAPSTOM data
+load("C:/Users/lucab/Downloads/stomach_dataset.Rdata")
+#Anchovy and Sardine data
+anc <- read.csv("C:/Users/lucab/Downloads/AnchovyAndSardine.csv")
+
+#filtering out what I need to do calculations.
+murray <- stom_df |>
+  filter(!is.na(pred_weight_g),
+         prey_ind_weight_g > 0,
+         prey_count > 0) |>
+  select(pred_species, pred_weight_g, prey_ind_weight_g, prey_count) |>
+  group_by(pred_species) |> 
+  filter(n() > 1000) |> 
+  rename(w_prey = prey_ind_weight_g, w_pred = pred_weight_g, n_prey = prey_count) |>
+  mutate(log_ppmr = log(w_pred / w_prey),
+         weight_numbers = n_prey / sum(n_prey))
+
+#reformating the Anc and Sard data to match
+
+anc <- anc |>
+  rename(pred_species = Species, w_prey = wprey, w_pred = wpredator, n_prey = Nprey) |>
+  mutate(log_ppmr = log(0.1 / w_prey),
+         weight_numbers = n_prey / sum(n_prey))
+
+#bind. 
+both <- bind_rows(murray, anc)
+
+```
+
+Now I have the data compiled and ready.
+Will firstly plot the PPMR and predator mass.
+
+```{r}
+PPMRpred <- ggplot(both,
+       aes(x = log(w_pred), y = log_ppmr)) + 
+  geom_point() + geom_smooth(aes(weight = n_prey),colour = "red")+
+  xlab("Log of predator mass [g]")+
+  ylab("Log of predator/prey mass ratio")
+```
+
+```{r pressure, echo=FALSE}
+plot(PPMRpred)
+```
+
+The PPMR changes across predator sizes, but lets change to include the biomass of prey
+(of note later, at around 2.5, there is a straight line that have a very higher PPMR, 
+will cover later on)
+
+
+```{r}
+ggplot(both,
+  aes(x = log(w_pred), y = log_ppmr)) + 
+  geom_point() + 
+  geom_smooth(aes(weight = (n_prey * w_prey^(2 / 3))),colour = "red")+
+  facet_wrap(vars(pred_species))+
+  xlab("Log of predator mass [kg]")+
+  ylab("Log of predator/prey mass ratio")+
+  xlim(0,10)
+```
+
+It looks a lot better, and the PPMR doesn't change as much across predator sizes.
+Next, I will plot the violin plot to see the change.
+
+```{r}
+#this next code is creating the breaks for the bins of equal datapoints
+quantiles <- quantile(both$w_pred, probs = seq(0, 1, by = 0.1))
+#then making the bins with these breaks.
+both <- both %>%
+  mutate(bin = cut(w_pred, breaks = quantiles, include.lowest = TRUE))
+
+#now lets plot it.
+ggplot(both, aes(bin, log_ppmr)) +
+  geom_violin(aes(weight = n_prey * w_prey^(2/3)), draw_quantiles = 0.5) +
+  xlab("Predator weight [g]") +
+  ylab("Log of predator/prey mass ratio")
+```
+It is within the range 5-7.5 PPMR across predator weights, except for the smallest sizes and 
+226-336. I would like to know what is different in 226-336. 
+
+The next section I will investigate this.
+
+The 226-336 bin range includes the line discussed prior. This doesn't look right,
+so I am going to find this range of data, then remove it, and recalculate the 
+violin plot. This hopefully will solve the issue.
+
+```{r}
+#subsetting to find the range 226 to 336
+filtered_both <- both %>%
+  filter(bin == "(226,336]")
+
+#going to plot its range of ppmr
+hist(filtered_both$log_ppmr)
+```
+```{r}
+#I am next going to remove any that are above 12 from the violin dataset, and 
+#replot it.
+
+remove15 <- both%>%
+  filter(!(bin == "(226,336]" & log_ppmr > 12))
+
+add15 <- both%>%
+  filter((bin == "(226,336]" & log_ppmr > 12))
+
+ggplot(remove15, aes(bin, log_ppmr)) +
+  geom_violin(aes(weight = n_prey * w_prey^(2/3)), draw_quantiles = 0.5) +
+  xlab("Predator weight [g]") +
+  ylab("Log of predator/prey mass ratio")
+
+```
+This looks a lot better now, but I'm not sure how scientific it is to remove datapoints that 
+I dont like. Regardless, it still looked fishy that 226-336 was higher than all the rest. 
+There is a slight deviation in 174-226, and looking at the PPMR figure (below), there is another straight line 
+in the data that is greater than the rest, so it may be the same story here. It also appears that this straight line 
+goes across half of the plot. (starts at approximately (-7.5, 1), finishes (2, 12))
+
+```{r}
+plot(PPMRpred)
+```
+I am going to try to identify the data that it came from
+
+```{r}
+#just going to vaguely define a line around it, then subset the data and 
+#see what is similar.
+line <- function(x) {
+  slope <- (12 - 1) / (2 - (-7.5))
+  intercept <- 1 - slope * (-7.5)
+  return(slope * x + intercept)
+}
+
+within_20_percent <- function(x, y) {
+  y_line <- line(x)
+  return(abs(y - y_line) <= 0.2 * y_line)
+}
+
+subset_df <- both %>%
+  filter(within_20_percent(log(w_pred), y = log_ppmr))
+subset_df <- subset_df%>%
+  filter(log(w_pred)<2.5)
+
+ggplot(subset_df) +
+  geom_point(aes(log(w_pred), log_ppmr), color = ifelse(subset_df$w_pred >= 0.174 & subset_df$w_pred <= 0.226, "red", "black"))
+
+```
+There are a few lines, in the data, so they can't have had very good scales. 
+However, there isnt a line that goes across this range, but I can identify the data that 
+is causing it to have a higher PPMR (between 2.25-2.35), and it does not appear to be a line,
+but I want to find out what species it is. 
+
+```{r}
+OKAY WHERE AM I NOW
+I DONT THINK THIS IS WORKING, THIS LINE OF INVESTIGATION, IT LOOKS GOOD ANYWAY, SO IT IS PROVEN REGIONALLY, 
+NEXT SHOULD I AGGREGATE SPECIES AND DO THE SAME?
+```
+
