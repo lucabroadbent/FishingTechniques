@@ -139,6 +139,80 @@ ggplot(mackdiff, aes(y = perc_diff))+
 #yep, majority of the differences is between 1% change, so therefore, both samples are taken at the same effort 
 #from both regions.
 
+#so the region isnt different, so what reason for the different ppmr values?
+#first i will look at the difference in the predator mass and prey mass
+
+
+#i want to join the mackless and mackgreat dataframes into one so i can plot code easier
+
+mackless12$group <- "less"
+mackgreat12$group <- "great"
+mackboth <- rbind(mackless12, mackgreat12)
+
+#now we plot boxplots of both the predator mass and prey mass
+
+ggplot(mackboth, aes(x = group, y = mackboth$pred_weight_g))+
+  geom_boxplot()+
+  xlab("Group")+
+  ylab("Predator mass [g]")
+
+ggplot(mackboth, aes(x = group, y = log(mackboth$prey_weight_g)))+
+  geom_boxplot()+
+  xlab("Group")+
+  ylab("Prey mass [g]")
+
+#the prey mass is considerably lower in the greater than 12 group.  But you cant see much a change
+#in the predator mass, as it is categorical.
+
+#i want to plot the predator mass against the prey mass on a density plot
+
+ggplot(mackboth, aes(x = (mackboth$pred_weight_g), y = log(mackboth$prey_weight_g), color = group))+
+  geom_point()+
+  xlab("Log of predator mass [g]")+
+  ylab("Log of prey mass [g]")
+
+# so it appears that the predator mass is not changing, but the prey mass is.
+#why might this be? they are not in different regions, but there is a large diference 
+#between their feeding habits.
+
+#i think i may need to unweight the dataset, as the points here may not be representative of the data
+#also, looking at the data format, the ices data is binned, whereas the dapstom data isnt binned.
+#this isnt important now, but might be later 
+
+#now i am going to look at the prey species compositition between the two groups.
+
+
+#first i need to unweight it.
+
+mackboth <- mackboth %>%
+  uncount(weights=prey_count)
+
+#worked, now i need to see the species composition for each group
+
+mackboth %>%
+  group_by(group, prey_species) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(x = prey_species, y = log(n), fill = group))+
+  geom_bar(stat = "identity", position = "dodge")+
+  xlab("Prey species")+
+  ylab("Number of samples")+
+  ggtitle("Number of samples of each prey species in each group")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+#it is too many species to check really. will look at functional group instead
+
+mackboth %>%
+  group_by(group, prey_funcgrp) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(x = prey_funcgrp, y = log(n), fill = group))+
+  geom_bar(stat = "identity", position = "dodge")+
+  xlab("Prey species")+
+  ylab("Number of samples")+
+  ggtitle("Number of samples of each prey species in each group")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#they are very similar, except for the nekton func group and a smaller difference in zooplankton
+#OK, PROBLEMS / WHERE I AM AT.  need to make the functional groups proportional, then look at
+#as the difference now looks like the number of samples in both. 
 
 
 
