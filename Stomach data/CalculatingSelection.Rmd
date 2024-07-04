@@ -1,0 +1,259 @@
+
+
+Firstly, I will try to get the prey selection coefficients from something easy
+I am going to try anchovy first. 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+#reading in the data
+load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
+
+anchovy <- stom_df%>%filter(pred_species=="Engraulis encrasicolus")
+#okay there arent very many datarows, so I will use another dataset as well
+
+anc <- read.csv("C:/Users/lucab/Downloads/AnchovyAndSardine.csv")
+anc <- anc%>%filter(Species=="anchovy")
+
+#I will combine the two datasets, but i need to get the same format
+anchovy <- anchovy%>%select(prey_weight_g, pred_weight_g, nprey_perpred, pred_species,)%>%
+rename(wprey=prey_weight_g, wpredator=pred_weight_g, Nprey=nprey_perpred, Species=pred_species)%>%
+  mutate(wprey=wprey/Nprey)
+
+anchovy <- rbind(anchovy, anc)
+
+#here is the final dataset to play with,
+#lets add ppmr columns
+anchovy <- anchovy%>%mutate(ppmr=(wpredator/wprey))
+```
+
+Now we have the dataset, first we should check that ppmr doesnt change across predator weights
+
+```{r}
+#plotting the ppmr against predator weight
+
+ggplot(anchovy, aes(x=wpredator, y=log(ppmr)))+
+  geom_point()+
+  geom_smooth(method="lm", se=FALSE)+
+  labs(title="PPMR vs Predator Weight", x="Predator Weight (g)", y="PPMR")
+
+#the lowest sizes of anchovy apparently eat prey that is e^-10, which is very small,
+#so i will filter this out
+
+#going to pplot only from 20g onwards
+
+ggplot(anchovy%>%filter(wpredator>20), aes(x=wpredator, y=log(ppmr)))+
+  geom_point()+
+  geom_smooth(method="gam", se=FALSE)+
+  labs(title="PPMR vs Predator Weight", x="Predator Weight (g)", y="PPMR")
+
+#this looks a lot better now (i dont know when to use lm or gam, but gam looks better)
+#therefore, we can say that ppmr stays the same across predator weights, so we can aggregate predator weights now.
+
+```
+It is interesting that we do not have to account for the biomass of the prey to get 
+an equal ppmr across predator weights, maybe because anchovy already eats very small 
+prey, and there isnt a great size variation.
+
+Next step is to plot this all as a density distribution
+
+```{r}
+#defining the digestion coefficient
+dig <- 2/3
+
+weighted.sd <- function(x, w) { sqrt(sum(w * (x - weighted.mean(x, w))^2)) } 
+
+weight <- anchovy$Nprey * (anchovy$wprey/anchovy$wpredator)^dig 
+weight <- weight / sum(weight) 
+
+est_mean <- weighted.mean(log(anchovy$ppmr), weight) 
+est_sd <- weighted.sd(log(anchovy$ppmr), weight) 
+
+ggplot(anchovy) + 
+  geom_density(aes(log(ppmr), weight = Nprey*wprey^dig), bw = 0.5) + 
+  stat_function(fun = dnorm, args = list(mean = est_mean, sd = est_sd), colour = "blue") + 
+  xlab("Log of Predator/Prey mass ratio") + ylab("Normalised diet density")
+
+```
+ok, the distribution for it seems to fit. it needs a slightly lower variance however.
+I will now check it for the number distribution
+
+```{r}
+
+stomach <- anchovy
+
+grid <- seq(0, max(log(stomach$ppmr)), length = 100)
+
+weighted.sd <- function(x, w) { sqrt(sum(w * (x - weighted.mean(x, w))^2)) } 
+
+weight <- anchovy$Nprey * (anchovy$wprey/anchovy$wpredator)^dig 
+weight <- weight / sum(weight)
+
+n_prey <- anchovy$Nprey
+weight_numbers = n_prey / sum(n_prey)
+
+est_mean <- weighted.mean(log(stomach$ppmr), weight)
+est_sd <- weighted.sd(log(stomach$ppmr), weight)
+    
+shifted_normaldens <- data.frame( 
+        log_ppmr = grid,
+        density = dnorm(grid, est_mean, est_sd)
+        )
+
+
+ggplot(stomach) +
+    geom_density(aes(log(ppmr), weight = weight_numbers),
+                 fill = "#00BFC4", bw = 0.5) +
+    xlab("Log of predator/prey mass ratio")  +
+    ylab("Number density") +
+    geom_line(aes(log_ppmr, density), data = shifted_normaldens,
+                  colour = "blue")
+
+```
+Okay, so I have plotted this including the anchovy data from the anchovy and sardines file
+and it does not look right, without including this data, it works. 
+I think this may be to do with different units of measurement between - so I will try to sort this out
+
+```{r}
+#I will assume that the stomach data is g, and the anchoy and sardines file is in kg
+
+#i have to change this, then read in all the data again and see
+anc <- anc%>%mutate(wprey=wprey*1000, wpredator=wpredator1000)
+
+anchovy <- stom_df%>%filter(pred_species=="Engraulis encrasicolus")
+
+anchovy <- anchovy%>%select(prey_weight_g, pred_weight_g, nprey_perpred, pred_species,)%>%
+rename(wprey=prey_weight_g, wpredator=pred_weight_g, Nprey=nprey_perpred, Species=pred_species)%>%
+  mutate(wprey=wprey/Nprey)
+
+anchovy <- rbind(anchovy, anc)
+anchovy <- anchovy%>%mutate(ppmr=(wpredator/wprey)) 
+
+#now to plot again
+
+stomach <- anchovy
+
+grid <- seq(0, max(log(stomach$ppmr)), length = 100)
+
+weighted.sd <- function(x, w) { sqrt(sum(w * (x - weighted.mean(x, w))^2)) } 
+
+weight <- anchovy$Nprey * (anchovy$wprey/anchovy$wpredator)^dig 
+weight <- weight / sum(weight)
+
+n_prey <- anchovy$Nprey
+weight_numbers = n_prey / sum(n_prey)
+
+est_mean <- weighted.mean(log(stomach$ppmr), weight)
+est_sd <- weighted.sd(log(stomach$ppmr), weight)
+    
+shifted_normaldens <- data.frame( 
+        log_ppmr = grid,
+        density = dnorm(grid, est_mean, est_sd)
+        )
+
+
+ggplot(stomach) +
+    geom_density(aes(log(ppmr), weight = weight_numbers),
+                 fill = "#00BFC4", bw = 0.5) +
+    xlab("Log of predator/prey mass ratio")  +
+    ylab("Number density") +
+    geom_line(aes(log_ppmr, density), data = shifted_normaldens,
+                  colour = "blue")
+
+
+
+```
+No, it is the same problem, potentially, they have different sampling methods
+and in one they are able to sample smaller species. What if I try to plot only the 
+anchovy and sardine data?
+
+```{r}
+
+#I am going to plot both, but as separate plots
+
+#need to match the column names to this data.
+
+stomach <- anchovy
+
+colnames(stomach) <- c("w_prey", "w_pred", "n_prey", "pred_species", "log_ppmr")
+
+stomach <- stomach%>%mutate(log_ppmr=log(w_pred/w_prey))
+
+grid <- seq(0, max(stomach$log_ppmr), length = 100)
+normaldens <- plyr::ddply(stomach, "pred_species", function(stomach) {
+    weight <- stomach$n_prey * (stomach$w_prey / stomach$w_pred)^dig
+    weight <- weight / sum(weight)
+
+    est_mean <- weighted.mean(stomach$log_ppmr, weight)
+    est_sd <- weighted.sd(stomach$log_ppmr, weight)
+    data.frame( 
+        log_ppmr = grid,
+        density = dnorm(grid, est_mean, est_sd)
+        )
+})
+
+stomach <- stomach |>
+    mutate(weight_diet = (n_prey * (w_prey / w_pred)^dig) / 
+               sum(n_prey * (w_prey / w_pred)^dig))
+
+ggplot(stomach) +
+    geom_density(aes(log_ppmr, weight = weight_diet),
+                 fill = "#00BFC4", bw = 0.5) +
+    facet_wrap(~pred_species, scales = "free_y", ncol = 4) +
+    xlab("Log of predator/prey mass ratio")  +
+    ylab("Diet density")+ 
+    geom_line(aes(log_ppmr, density), data = normaldens,
+                  colour = "red")
+```
+and now doing the same for the number density
+
+```{r}
+
+shifted_normaldens <- plyr::ddply(stomach, "pred_species", function(stomach) {
+    weight <- stomach$n_prey * (stomach$w_prey / stomach$w_pred)^dig
+    weight <- weight / sum(weight)
+
+    est_mean <- weighted.mean(stomach$log_ppmr, weight)
+    est_sd <- weighted.sd(stomach$log_ppmr, weight)
+    data.frame( 
+        log_ppmr = grid,
+        density = dnorm(grid, est_mean+dig*est_sd^2, est_sd)
+        )
+})
+
+ggplot(stomach) +
+    geom_density(aes(log_ppmr, weight = weight_numbers),
+                 fill = "#00BFC4", bw = 0.5) +
+    facet_wrap(~pred_species, scales = "free_y", ncol = 4) +
+    xlab("Log of predator/prey mass ratio")  +
+    ylab("Number density") +
+    geom_line(aes(log_ppmr, density), data = shifted_normaldens,
+                  colour = "blue")
+
+
+```
+It works very well for the stom_df dataset, but not at all for the anchovy dataset.
+Not sure why. 
+I think the problem is that Nprey from the anchovy dataset is the probability of 
+the prey item to be in a stomach, whereas this code assumes that Nprey is the 
+number of prey found for those sizes of pred and prey. - thinking about it this
+shouldnt matter, as it is both a weight of number of observations. 
+- something else must be up with this data.
+
+So I am not sure how to convert this to what we want (will have to redo code
+to weight it in that fashion)
+
+For now I am just going to use the stomach dataset, and this next section I will
+run a mixed effects linear model to see the variation not due to region/year
+```{r}
+#setting up the model
+
+anchovy <- stom_df%>%filter(pred_species=="Engraulis encrasicolus")%>%
+  mutate(wprey=prey_weight_g/nprey_perpred)
+
+model <- lmer(data=anchovy, wprey~(1|ices_rectangle))
+
+```
+

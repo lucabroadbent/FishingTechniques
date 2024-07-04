@@ -21,6 +21,7 @@ library(tidyr)
 
 #ICES/DAPSTOM data
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata")
+
 #Anchovy and Sardine data
 anc <- read.csv("C:/Users/lucab/Downloads/AnchovyAndSardine.csv")
 
@@ -171,5 +172,78 @@ but I want to find out what species it is.
 OKAY WHERE AM I NOW
 I DONT THINK THIS IS WORKING, THIS LINE OF INVESTIGATION, IT LOOKS GOOD ANYWAY, SO IT IS PROVEN REGIONALLY, 
 NEXT SHOULD I AGGREGATE SPECIES AND DO THE SAME?
+```
+
+
+
+This section is about using a different way of fitting normal distribution, to see if it works better
+for when we calcualate our own individual prey weight column, instead of using the one in the model 
+
+```{r}
+#filtering data out, and calculating our own column
+
+restom <- stom_df |>
+    filter(!is.na(pred_weight_g),
+           prey_ind_weight_g > 0,
+           prey_count > 0) |>
+    select(pred_species, pred_weight_g, prey_weight_g, prey_count) |>
+    group_by(pred_species) |> 
+    filter(n() > 1000) |> 
+    rename(w_prey = prey_weight_g, w_pred = pred_weight_g, n_prey = prey_count) |>
+    mutate(log_ppmr = log(w_pred / (w_prey/n_prey)),
+           weight_numbers = n_prey / sum(n_prey),
+           w_prey=w_prey/n_prey)
+
+#now we are calculating the new means and sd.
+
+dig <- 2/3
+weight <- restom$n_prey * (restom$w_prey / restom$w_pred)^dig
+weight <- weight / sum(weight)
+
+est_mean <- weighted.mean(restom$log_ppmr, weight)
+
+est_mean_num <- weighted.mean(restom$log_ppmr, restom$n_prey)
+est_sd_alt <- sqrt((est_mean_num - est_mean) / dig)
+```
+```{r}
+#now we want to replot it all. Firstly for the diet.
+
+grid <- seq(0, max(restom$log_ppmr), length = 100)
+normaldens <- plyr::ddply(restom, "pred_species", function(stomach) {
+    weight <- restom$n_prey * (restom$w_prey / restom$w_pred)^dig
+    weight <- weight / sum(weight)
+
+    est_mean <- weighted.mean(restom$log_ppmr, weight)
+    est_mean_num <- weighted.mean(restom$log_ppmr, restom$n_prey)
+    est_sd_alt <- sqrt((est_mean_num - est_mean) / dig)
+    
+    data.frame( 
+        log_ppmr = grid,
+        density = dnorm(grid, est_mean, est_sd_alt)
+        )
+})
+
+stomach <- restom |>
+    mutate(weight_diet = (n_prey * (w_prey / w_pred)^dig) / 
+               sum(n_prey * (w_prey / w_pred)^dig))
+
+ggplot(stomach) +
+    geom_density(aes(log_ppmr, weight = weight_diet),
+                 fill = "#00BFC4", bw = 0.5) +
+    facet_wrap(~pred_species, scales = "free_y", ncol = 4) +
+    xlab("Log of predator/prey mass ratio")  +
+    ylab("Diet density")+ 
+    geom_line(aes(log_ppmr, density), data = normaldens,
+                  colour = "red")
+
+#ok this doesn't fit very well - the standard deviation is way too large
+```
+Ok, so once we use our own column for prey weight, as theirs is not calculated correctly, 
+or it is calculated differently (and we dont know how), the normal distributions that we 
+have been fitting do not work very well. 
+
+```{r}
+
+
 ```
 

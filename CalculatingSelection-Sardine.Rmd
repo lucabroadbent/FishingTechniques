@@ -1,0 +1,167 @@
+---
+title: "CalculatingSelection-Pilchard"
+output: html_document
+date: "2024-07-03"
+---
+
+I need to get the data from the stomach contents file first.
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+#reading in the data
+load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
+
+#filtering out what I need to do calculations.
+sardine <- stom_df%>%filter(pred_species=="Sardina pilchardus")
+
+```
+
+There aren't enough datapoints for the sardines, so I am going to find other
+datasets. (will have to analyse them all separately, as I am not sure 
+if the same data has been included across datasets)
+
+```{r}
+#this is taken from a paper `Stomach contents of small pelagic fishes in the 
+#Bay of Biscay`
+
+sardine <- read.csv("C:/Users/lucab/Downloads/80301.csv", sep = ";")
+
+columntitle <- readxl::read_xlsx("C:/Users/lucab/Downloads/80302.xlsx")
+
+sardine <- sardine%>%filter(GENR.ESP=="SARD-PIL")
+
+```
+
+Ok, this dataset has enough datapoints I think (2262, which might be weighted)
+This dataset does not contain any mass (for prey or predator)....
+
+I do also have the sardines and anchovy dataset that I can use, but when 
+I used it the anchovy dataset, it gave very different distributions to the
+anchovy dataset taken from the stom_df file.
+
+But, its the only dataset I can find.
+
+
+```{r}
+
+
+anc <- read.csv("C:/Users/lucab/Downloads/AnchovyAndSardine.csv")
+
+sardine <- anc%>%filter(Species=="sardine")
+
+
+```
+Here we go, this works.
+
+So firstly I need to check that the PPMR is the same across all datasets.
+
+
+```{r}
+
+sardine <- sardine%>%
+  mutate(logppmr=log(wpredator/wprey))
+
+ggplot(sardine)+
+  geom_point(aes(x=log(wpredator), y=logppmr))+
+  xlab("Log of predator mass [g]")+
+  ylab("Log of predator/prey mass ratio")
+
+
+```
+
+The binned sardine size is not very good. Might need more data.
+
+Now plotting the densities - for biomass and number
+
+```{r}
+
+stomach <- sardine %>% 
+  mutate(weight_numbers = Nprey / sum(Nprey), 
+         weight_biomass = Nprey * wprey^(2/3)) 
+
+adjust <- 0.5
+
+ggplot(stomach) +
+  geom_density(aes(logppmr, weight = weight_numbers, fill = "Numbers"), adjust = adjust) + 
+  geom_density(aes(logppmr, weight = weight_biomass, fill = "Biomass"), adjust = adjust) + 
+  xlab("Log of predator/prey mass ratio")+  
+  expand_limits(x = c(0, 29)) 
+
+```
+
+Other than for the bump where there is a higher PPMR in the biomass distribution,
+it seems that this could be modelled by a lognormal distribution.
+
+I will investigate this bump, as it is not present in the number distribution.
+
+```{r}
+#this is just the data from the bump.
+filtersardine <- sardine%>%filter(logppmr <17,logppmr>12)
+
+ggplot(filtersardine)+
+  geom_point(aes(x=wprey, y=log(Nprey)))+
+  xlab("Log of prey mass [g]")+
+  ylab("|Nprey")
+
+
+```
+Cant really discern much - other than there is one straight line of prey mass,
+but it has different Nprey. This doesnt seem right, if they were all the same,
+then they would be included in the same Nprey within the same datapoint. 
+Would this affect the density? I think so, so lets try to change.
+
+```{r}
+#lets try to subset this data
+
+filtersardine <- sardine%>%filter(wprey>0.000075, wprey<0.0001)
+
+ggplot(filtersardine)+
+  geom_point(aes(x=wprey, y=log(Nprey)))+
+  xlab("Log of prey mass [g]")+
+  ylab("|Nprey")
+
+```
+
+So we have 22 datapoints where the prey size is 9.2584e-05. We need to aggregate
+this into one datapoint, so need to aggregate the Nprey.
+
+```{r}
+
+sardine2 <- sardine
+sardine2 <- sardine2%>%mutate(logppmr=log(wpredator/wprey))
+
+sum(filtersardine$Nprey)
+#so the value should be 11.4353
+#changesardine <- filtersardine%>%filter(wprey==0.000092584)
+changesardine <- filtersardine%>%filter(Nprey==0.0527)%>%
+  mutate(Nprey=11.4353)
+
+sardine2 <- sardine2%>%filter(wprey!=0.000092584)
+sardine2 <- rbind(sardine2, changesardine)
+
+#now i have aggregated it, lets plot it. 
+
+stomach <- sardine2 %>% 
+  mutate(weight_numbers = Nprey / sum(Nprey), 
+         weight_biomass = Nprey * wprey^(2/3)) 
+
+adjust <- 0.5
+
+ggplot(stomach) +
+  geom_density(aes(logppmr, weight = weight_numbers, fill = "Numbers"), adjust = adjust) + 
+  geom_density(aes(logppmr, weight = weight_biomass, fill = "Biomass"), adjust = adjust) + 
+  xlab("Log of predator/prey mass ratio")+  
+  expand_limits(x = c(0, 29)) 
+
+```
+
+So it did change the data, and it made the bump more pronounced, which
+makes it seem like sardines should be multimodal in terms of their feeding.
+- also, I dont think sardines eat any prey that is modelled within the model,
+so it would just be from the resource spectrum, which if I am correct, is just 
+scaled to the population of the predator eating from it? (source for what
+sardines eat - https://ideas.repec.org/a/wfi/wfnaga/38363.html) So 

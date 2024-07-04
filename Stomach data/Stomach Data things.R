@@ -7,8 +7,8 @@ load("C:/Users/lucab/Downloads/stomach_dataset.Rdata")
 anc <- read.csv("C:/Users/lucab/Downloads/AnchovyAndSardine.csv")
 
 #i need to first add the chile samples as well.
-
-murray <- stom_df |>
+ 
+murray <- stom_df |> 
   filter(!is.na(pred_weight_g),
          prey_ind_weight_g > 0,
          prey_count > 0) |>
