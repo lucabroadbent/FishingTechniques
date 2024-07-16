@@ -1,0 +1,89 @@
+---
+title: "Merlangius merlangus"
+output: html_document
+date: "2024-07-12"
+---
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
+
+whiting <- stom_df%>%filter(pred_taxa=="Merlangius merlangus")
+
+```
+
+First lets check the PPMR predator size distribution.
+
+```{r}
+
+#filtering out a problem datapoint and any NA values
+whiting <- whiting %>% filter(pred_weight_g < 1000, nprey_perpred > 1) %>%
+  filter(is.finite(pred_weight_g) & !is.na(pred_weight_g) & is.finite(log(ppmr)) & !is.na(log(ppmr)))
+
+
+
+ggplot(whiting, aes(x=pred_weight_g, y=log(ppmr)))+
+  geom_point()+
+  geom_smooth(method="gam", se=FALSE, na.rm = TRUE, aes(weight = nprey_perpred))+
+  labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
+
+```
+
+
+```{r}
+dig <- 2/3
+
+ggplot(whiting, aes(x=pred_weight_g, y=log(ppmr)))+
+  geom_point()+
+  geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred*whiting$prey_ind_weight_g^dig))+
+  labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
+
+
+```
+
+
+I am not sure what to make of this, it seems that PPMR decreases as pred weight 
+increases, and that PPMR is low when whiting is a juvenile (probably sampling
+limitations). It isnt the most drastic change, but there still is.
+
+However, it appears to be two different data sources included here. One which 
+has grouped predator weights, and the other that doesnt. Maybe these different 
+sampling techniques are not meshing very well, so I will plot both with the 
+data separated.
+
+```{r}
+dig <- 2/3
+
+ggplot(whiting, aes(x=pred_weight_g, y=log(ppmr)))+
+  geom_point()+
+  facet_wrap(~data)+
+  geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred*whiting$prey_ind_weight_g^dig))+
+  labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
+
+
+```
+
+The dapstom data says that PPMR is the same across predator sizes, but the 
+ICES data dips at the final predator size category. This dip could be due to 
+different sampling of large sizes, or that they were collected years ago.
+
+But as this dip is not present in the dapstom data, therefore, 
+PPMR is the same across whiting sizes.
+
+```{r}
+
+whiting$weight_numbers <- whiting$nprey_perpred
+whiting$weight_biomass <- whiting$nprey_perpred*whiting$prey_ind_weight_g^dig
+
+ggplot() +
+  geom_density(data = whiting, aes(x = log(ppmr), weight = weight_biomass), color = "red") +
+  geom_density(data = whiting, aes(x = log(ppmr), weight = weight_numbers), color = "blue") +
+  labs(title = "Density Plot of log(ppmr) Weighted by Biomass and Numbers",
+       x = "log(ppmr)",
+       y = "Density") +
+  theme_minimal()
+
+```

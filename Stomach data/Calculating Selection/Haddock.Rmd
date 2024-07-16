@@ -1,0 +1,98 @@
+---
+title: "Haddock"
+output: html_document
+date: "2024-07-15"
+---
+```{r}
+library(dplyr)
+library(ggplot2)
+
+load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
+
+haddock <- stom_df%>%filter(pred_taxa=="Melanogrammus aeglefinus")
+
+```
+
+```{r}
+
+#whiting <- whiting%>%filter(pred_weight_g<10000, nprey_perpred > 1)
+
+ggplot(haddock, aes(x=log(pred_weight_g), y=log(ppmr)))+
+  geom_point()+
+  geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred))+
+  labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
+
+```
+
+```{r}
+dig <- 2/3
+
+ggplot(haddock, aes(x=(pred_weight_g), y=log(ppmr)))+
+  geom_point()+
+  #facet_wrap(~data)+
+  geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred*haddock$prey_ind_weight_g^dig))+
+  labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
+
+
+```
+
+Once it is weighted by biomass, it works, but the PPMR still decreases
+at larger sizes. I think it should still be okay.
+
+```{r}
+
+stomach <- haddock
+stomach$weight_numbers <- stomach$nprey_perpred
+stomach$weight_biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g^dig
+
+ggplot() +
+  geom_density(data = stomach, aes(x = log(ppmr), weight = weight_biomass), color = "red") +
+  geom_density(data = stomach, aes(x = log(ppmr), weight = weight_numbers), color = "blue") +
+  labs(title = "Density Plot of log(ppmr) Weighted by Biomass and Numbers",
+       x = "log(ppmr)",
+       y = "Density") +
+  theme_minimal()
+
+````
+
+I think that a mixture gaussian model would fit this best.
+
+```{r}
+
+
+library(mclust)
+
+repeat_elements <- function(data, weights) {
+
+    valid_indices <- !is.na(data) & !is.na(weights)
+  data <- data[valid_indices]
+  weights <- weights[valid_indices]
+  
+  final_vector <- c()
+
+  for (i in seq_along(data)) {
+
+    rounded_weight <- round(weights[i])
+
+    repeated_values <- rep(data[i], times = rounded_weight)
+
+    final_vector <- c(final_vector, repeated_values)
+  }
+  
+  return(final_vector)
+}
+
+haddocknu <- repeat_elements(log(stomach$ppmr), stomach$nprey_perpred)
+
+gmm <- densityMclust(haddocknu, G=3)
+
+
+```
+
+This isnt the best fit, it missses out a peak at higher PPMR. When it is run 
+with 3 gaussians, the 3rd peak has an extremely high density, which makes me 
+think that there is something wrong with the data here. If it didnt have such 
+a high density it would fit it very well.
+
+I want to see if I filter out this data it would work better, or if this 
+data is from the same year/region.
