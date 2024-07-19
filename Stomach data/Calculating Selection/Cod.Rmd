@@ -1,75 +1,72 @@
 ---
-output:
-  pdf_document: default
-  html_document: default
----
- b---
-title: "Haddock"
+title: "Cod"
 output: html_document
-date: "2024-07-15"
+date: "2024-07-17"
 ---
+
+
 ```{r}
 library(dplyr)
 library(ggplot2)
 
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
-haddock <- stom_df%>%filter(pred_taxa=="Melanogrammus aeglefinus")
+sprat <- stom_df%>%filter(pred_taxa=="Gadus morhua")
 
 ```
 
 ```{r}
 
-#whiting <- whiting%>%filter(pred_weight_g<10000, nprey_perpred > 1)
-
-ggplot(haddock, aes(x=log(pred_weight_g), y=log(ppmr)))+
+ggplot(sprat, aes(x=pred_weight_g, y=log(ppmr)))+
   geom_point()+
   geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred))+
   labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
 
 ```
 
-```{r}
-dig <- 2/3
 
-ggplot(haddock, aes(x=(pred_weight_g), y=log(ppmr)))+
+```{r}
+dig <- 1
+
+ggplot(sprat, aes(x=pred_weight_g, y=log(ppmr)))+
   geom_point()+
-  #facet_wrap(~data)+
-  geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred*haddock$prey_ind_weight_g^dig))+
+  facet_wrap(~data)+
+  geom_smooth(method="gam", se=FALSE, aes(weight = nprey_perpred*sprat$prey_ind_weight_g^dig))+
   labs(title="logPPMR vs Predator Weight", x="Predator Weight (g)", y="logPPMR")
 
 
 ```
 
-Once it is weighted by biomass, it works, but the PPMR still decreases
-at larger sizes. I think it should still be okay.
-
+ The PPMR does seem to increase at the largest sizes, should I remove or just
+ ignore?
+ 
 ```{r}
 
-stomach <- haddock
-stomach$weight_numbers <- stomach$nprey_perpred
-stomach$weight_biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g^dig
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
 
 ggplot() +
-  geom_density(data = stomach, aes(x = log(ppmr), weight = weight_biomass), color = "red") +
-  geom_density(data = stomach, aes(x = log(ppmr), weight = weight_numbers), color = "blue") +
+  geom_density(data = sprat, aes(x = log(ppmr), weight = weight_biomass), color = "red") +
+  geom_density(data = sprat, aes(x = log(ppmr), weight = weight_numbers), color = "blue") +
   labs(title = "Density Plot of log(ppmr) Weighted by Biomass and Numbers",
        x = "log(ppmr)",
        y = "Density") +
   theme_minimal()
 
-```
 
-I think that a mixture gaussian model would fit this best.
+```   
+
+
 
 ```{r}
 
+sprat <- sprat%>%filter(nprey_perpred>0)
 
 library(mclust)
 
 repeat_elements <- function(data, weights) {
 
-    valid_indices <- !is.na(data) & !is.na(weights)
+  valid_indices <- !is.na(data) & !is.na(weights)
   data <- data[valid_indices]
   weights <- weights[valid_indices]
   
@@ -87,102 +84,53 @@ repeat_elements <- function(data, weights) {
   return(final_vector)
 }
 
-haddocknu <- repeat_elements(log(stomach$ppmr), stomach$nprey_perpred)
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
 
-gmm <- densityMclust(haddocknu, G=3)
-
-
-```
-
-This isnt the best fit, it missses out a peak at higher PPMR. When it is run 
-with 3 gaussians, the 3rd peak has an extremely high density, which makes me 
-think that there is something wrong with the data here. If it didnt have such 
-a high density it would fit it very well.
-
-I want to see if I filter out this data it would work better, or if this 
-data is from the same year/region.
-
-```{r}
-
-ggplot(stomach, aes(x=log(ppmr), y=nprey_perpred))+
-  geom_point()+
-  labs(title="PPMR vs Prey Individual Weight", x="PPMR", y="Number of Prey per pred")
+gmm <- densityMclust(spratnu, G=1)
 
 ```
-
-
-Ok, so there are two datapoints with a very high nprey per pred, so this means
-that it skews the distribution, I want to remove it and rerun the fit.
-
-```{r}
-
-stomach <- stomach%>%filter(nprey_perpred<2000)
-haddocknu <- repeat_elements(log(stomach$ppmr), stomach$nprey_perpred)
-gmm <- densityMclust(haddocknu, G=2)
-
-```
-
-
-This looks to be a good fit. Lets see if it shifts!
 
 ```{r}
 
 dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
 
-(biofit <- ggplot() +
-    geom_density(data=stomach, aes(log(ppmr), weight=weight_numbers), fill="lightblue")+
+
+(numbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers), fill="lightblue")+
   geom_line(data=dplot, aes(x = x, y = density), color="red") +
   labs(x = "Values", y = "Density") +
-  ggtitle("Diet Density Plot from Diet Distribution"))
+  ggtitle("Number Density Plot from Number Distribution"))
 
-shifted_fit <- gmm
-shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]-
-  (2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
+```
 
-stomach <- stomach%>%filter(!is.na(ppmr))
+Ok this gaussian fits nicely, does it shift?
 
-x_vals <- seq(min(log(stomach$ppmr)), max(log(stomach$ppmr)), length.out = 1000)
-
-#generating the density values 
-shifted_pdf <- sapply(x_vals, function(x) {
-  sum(shifted_fit$parameters$pro * dnorm(x, mean = shifted_fit$parameters$mean, sd = sqrt(shifted_fit$parameters$variance$sigmasq)))
-})
-
-plot_data <- data.frame(x = x_vals, shifted_pdf = shifted_pdf)
-
-
-(numbfitbio <- ggplot() +
-    geom_density(data=stomach, aes(log(ppmr), weight=weight_biomass), fill="lightblue")+
-    geom_density(data=plot_data, aes(x, weight=shifted_pdf), fill="red", alpha=0.5)+
-  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
-  labs(x = "Values", y = "Density") +
-  ggtitle("Diet Density Plot from Number Distribution"))
-
-#doing it in a different way
+```{r}
 
 newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
-
 shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
 
+#making new dataframe
 dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 
 (numbfitbio <- ggplot() +
-    geom_density(data=stomach, aes(log(ppmr), weight=weight_biomass), fill="lightblue")+
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass), fill="lightblue")+
     geom_density(data=dplot, aes(x, weight=shifted_pdf_normalized), fill="red", alpha=0.5)+
   #geom_line(data=dplot, aes(x = x, y = density), color="red") +
   labs(x = "Values", y = "Density") +
   ggtitle("Diet Density Plot from Number Distribution"))
 
-
 ```
 
-Ok, so it doesn't shift, will have to try biomass to number
+This isnt the best shift, lets try to shift it the other way.
 
 ```{r}
 
+stomach <- sprat
+
 haddocknu <- repeat_elements(log(stomach$ppmr), stomach$nprey_perpred*
                                stomach$prey_ind_weight_g^dig)
-gmm <- densityMclust(haddocknu, G=2)
+gmm <- densityMclust(haddocknu, G=1)
 
 
 dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
@@ -233,9 +181,8 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 
 ```
 
-Its better, but I still dont think its good enough, the mixture % do not 
-change. As neither of them shift, I think I am going to have to fit
-the exponential, and see if that shifts.
+
+Okay, it doesn't shift well either here. I will try the exponential.
 
 
 ```{r}
@@ -321,15 +268,15 @@ mle_texp <- function(df) {
 ```{r}
 library(bbmle)
 
-stomach <- stomach%>%mutate(l=log(ppmr))
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l))
+
 
 est <- mle_texp(stomach)
 
 biomassco <- est@coef
 
-grid = seq(0, 30, length.out = 200)
-#here, the alpha is meant to be -1, but I have to subtract 0.7 to make it work, so I am going to run the distribution again
-#for the biomass, and see the difference
+grid = seq(min(stomach$l), max(stomach$l), length.out = 200)
+
 dist <- dtexp(grid, alpha = (biomassco[1]), ll = biomassco[2], ul = biomassco[3], 
               lr = biomassco[4], ur = biomassco[5])
 
@@ -342,15 +289,14 @@ dist <- data.frame(l=grid, Density=dist)
 
 ```
 
-Ok the exponential fits well, now lets shift!
-
+Fits okay, does it shift.
 
 ```{r}
 numberestco <- biomassco
 
 dist <- dtexp(grid, alpha = (numberestco[1]), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
 numberdist <- data.frame(l=grid, Density=dist)
-dist <- dtexp(grid, alpha = (numberestco[1]-1), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
+dist <- dtexp(grid, alpha = (numberestco[1]-2/3), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
 biomassdist <- data.frame(l=grid, Density=dist)
 #now plot these two together
 
@@ -361,65 +307,47 @@ ggplot(stomach) +
   geom_density(aes(l, weight=biomass))+
  xlab("Log of predator/prey mass ratio") + 
   geom_line(aes(l, Density), data = biomassdist, color = "red")+
-  geom_line(aes(l, Density), data = numberdist, color = "blue")
+  geom_line(aes(l, Density), data = numberdist, color = "blue")+
+  xlim(0,13)
 
 ```
 
-This fits well. 
+This doesn't fit well. Its okay, but it is still off.
 
-     alpha         ll         ul         lr         ur 
- 0.4805395  3.8865861  2.1827656 11.7890770  2.3939047 
- 
- Does fitting to biomass and shifting mean a better fit?
- 
- 
+Will try it the other way around and compare. (fitting number from diet)
+
+
 ```{r}
 
-
-stomach <- stomach%>%mutate(l=log(ppmr))
-
-stomach <- stomach%>%mutate(weight_numbers = stomach$nprey_perpred*
-                              stomach$prey_ind_weight_g^dig)
+stomach <- stomach%>%mutate(weight_numbers=nprey_perpred*stomach$prey_ind_weight_g^dig)
 
 est <- mle_texp(stomach)
 
-biomassco <- est@coef
-
+estco <- est@fullcoef
 grid = seq(0, 30, length.out = 200)
-#here, the alpha is meant to be -1, but I have to subtract 0.7 to make it work, so I am going to run the distribution again
-#for the biomass, and see the difference
-dist <- dtexp(grid, alpha = (biomassco[1]), ll = biomassco[2], ul = biomassco[3], 
-              lr = biomassco[4], ur = biomassco[5])
-
+dist <- dtexp(grid, alpha = estco[1], ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
 dist <- data.frame(l=grid, Density=dist)
 
-  ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
+ggplot(stomach) + 
+  geom_density(aes(l, weight=nprey_perpred*stomach$prey_ind_weight_g^dig))+
  xlab("Log of predator/prey mass ratio") + 
   geom_line(aes(l, Density), data = dist, color = "red")
 
-numberestco <- biomassco
 
-dist <- dtexp(grid, alpha = (numberestco[1]), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
-numberdist <- data.frame(l=grid, Density=dist)
-dist <- dtexp(grid, alpha = (numberestco[1]+1), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
-biomassdist <- data.frame(l=grid, Density=dist)
-#now plot these two together
-
-stomach <- stomach %>% mutate(biomass = nprey_perpred)
-
-ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
-  geom_density(aes(l, weight=biomass))+
- xlab("Log of predator/prey mass ratio") + 
-  geom_line(aes(l, Density), data = biomassdist, color = "red")+
-  geom_line(aes(l, Density), data = numberdist, color = "blue")
-  
 ```
 
-They are both the same - both underestimate either number or biomass.
+```{r}
 
-However, for it to be better modelled by the exponential, when it is not a filter
-feeder is strange. It does seem that there are 2 feeding modes, but the 
-mixture gaussian model does not shift between biomass and number distributions
-well even thought ecologically it should be modelled by this.
+dist <- dtexp(grid, alpha = estco[1]+2/3, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
+dist <- data.frame(l=grid, Density=dist)
+
+ggplot(stomach) + 
+  geom_density(aes(l, weight=nprey_perpred))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = dist, color = "red")
+
+```
+
+It doesnt fit well for both.
+
+But shifting across number to diet works the best I think.
