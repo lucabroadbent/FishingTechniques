@@ -1,3 +1,8 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 
 
 Firstly, I will try to get the prey selection coefficients from something easy
@@ -53,6 +58,7 @@ ggplot(anchovy%>%filter(wpredator>20), aes(x=wpredator, y=log(ppmr)))+
 #therefore, we can say that ppmr stays the same across predator weights, so we can aggregate predator weights now.
 
 ```
+
 It is interesting that we do not have to account for the biomass of the prey to get 
 an equal ppmr across predator weights, maybe because anchovy already eats very small 
 prey, and there isnt a great size variation.
@@ -77,7 +83,8 @@ ggplot(anchovy) +
   xlab("Log of Predator/Prey mass ratio") + ylab("Normalised diet density")
 
 ```
-ok, the distribution for it seems to fit. it needs a slightly lower variance however.
+
+Ok, the distribution for it seems to fit. it needs a slightly lower variance however.
 I will now check it for the number distribution
 
 ```{r}
@@ -112,62 +119,11 @@ ggplot(stomach) +
                   colour = "blue")
 
 ```
-Okay, so I have plotted this including the anchovy data from the anchovy and sardines file
-and it does not look right, without including this data, it works. 
-I think this may be to do with different units of measurement between - so I will try to sort this out
 
-```{r}
-#I will assume that the stomach data is g, and the anchoy and sardines file is in kg
+Okay, the distribution fit here isn't good. But when I do the same without 
+including the data from the anchovy and sardines file, it looks a lot better.
 
-#i have to change this, then read in all the data again and see
-anc <- anc%>%mutate(wprey=wprey*1000, wpredator=wpredator1000)
-
-anchovy <- stom_df%>%filter(pred_species=="Engraulis encrasicolus")
-
-anchovy <- anchovy%>%select(prey_weight_g, pred_weight_g, nprey_perpred, pred_species,)%>%
-rename(wprey=prey_weight_g, wpredator=pred_weight_g, Nprey=nprey_perpred, Species=pred_species)%>%
-  mutate(wprey=wprey/Nprey)
-
-anchovy <- rbind(anchovy, anc)
-anchovy <- anchovy%>%mutate(ppmr=(wpredator/wprey)) 
-
-#now to plot again
-
-stomach <- anchovy
-
-grid <- seq(0, max(log(stomach$ppmr)), length = 100)
-
-weighted.sd <- function(x, w) { sqrt(sum(w * (x - weighted.mean(x, w))^2)) } 
-
-weight <- anchovy$Nprey * (anchovy$wprey/anchovy$wpredator)^dig 
-weight <- weight / sum(weight)
-
-n_prey <- anchovy$Nprey
-weight_numbers = n_prey / sum(n_prey)
-
-est_mean <- weighted.mean(log(stomach$ppmr), weight)
-est_sd <- weighted.sd(log(stomach$ppmr), weight)
-    
-shifted_normaldens <- data.frame( 
-        log_ppmr = grid,
-        density = dnorm(grid, est_mean, est_sd)
-        )
-
-
-ggplot(stomach) +
-    geom_density(aes(log(ppmr), weight = weight_numbers),
-                 fill = "#00BFC4", bw = 0.5) +
-    xlab("Log of predator/prey mass ratio")  +
-    ylab("Number density") +
-    geom_line(aes(log_ppmr, density), data = shifted_normaldens,
-                  colour = "blue")
-
-
-
-```
-No, it is the same problem, potentially, they have different sampling methods
-and in one they are able to sample smaller species. What if I try to plot only the 
-anchovy and sardine data?
+I am going to plot them now separately.
 
 ```{r}
 
@@ -207,6 +163,7 @@ ggplot(stomach) +
     geom_line(aes(log_ppmr, density), data = normaldens,
                   colour = "red")
 ```
+
 and now doing the same for the number density
 
 ```{r}
@@ -234,8 +191,10 @@ ggplot(stomach) +
 
 
 ```
+
 It works very well for the stom_df dataset, but not at all for the anchovy dataset.
 Not sure why. 
+
 I think the problem is that Nprey from the anchovy dataset is the probability of 
 the prey item to be in a stomach, whereas this code assumes that Nprey is the 
 number of prey found for those sizes of pred and prey. - thinking about it this
@@ -253,12 +212,16 @@ run a mixed effects linear model to see the variation not due to region/year
 anchovy <- stom_df%>%filter(pred_species=="Engraulis encrasicolus")%>%
   mutate(wprey=prey_weight_g/nprey_perpred)
 
-model <- lmer(data=anchovy, wprey~(1|ices_rectangle))
+#model <- lmer(data=anchovy, wprey~(1|ices_rectangle))
 
 #ok to this model states that 99% percent of the wprey is not due to the region or year
 #therefore it must all be due to the predator selection
 
 ```
+
 I think we need more data, as currently there isn't too much, and if we can 
 figure out how to use the anchovies and sardines datafile, we can include that too, 
 but currently it completely different. 
+
+Still, the normal distribution fits the anchovy predation kernel very well, 
+so I think we can use this.

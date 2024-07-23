@@ -1,12 +1,15 @@
 ---
 title: "Monkfish"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-17"
 ---
 
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(bbmle)
 
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
@@ -155,6 +158,9 @@ shifted_fit <- gmm
 shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+
   (2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
 
+sprat$l <- log(sprat$ppmr)
+x_vals <- seq(min(sprat$l), max(sprat$l), length.out = 1000)
+
 #generating the density values 
 shifted_pdf <- sapply(x_vals, function(x) {
   sum(shifted_fit$parameters$pro * dnorm(x, mean = shifted_fit$parameters$mean, sd = sqrt(shifted_fit$parameters$variance$sigmasq)))
@@ -231,6 +237,7 @@ stomach <- sprat
 stomach$l <- log(stomach$ppmr)
 stomach <- stomach[!is.na(stomach$l),]
 stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+
 
 fl <- function(l, alpha, ll, ul, lr, ur) {
   dl <- ll - l
@@ -352,23 +359,28 @@ shiftnumberdist <- data.frame(l=grid, Density=shiftdist)
 stomach <- stomach %>% mutate( biomass = nprey_perpred * prey_ind_weight_g)
 
 ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
-  geom_density(aes(l, weight=biomass))+
+  geom_density(aes(l, weight=weight_numbers), fill="lightblue")+
+  geom_density(aes(l, weight=biomass), fill="#ffcccb")+
  xlab("Log of predator/prey mass ratio") + 
   geom_line(aes(l, Density), data = biomassdist, color = "red")+
   geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
-  ggtitle("Fitted to Biomass, shift to number")+
-  xlim(0,10)
+  ggtitle("Fitted to Biomass, shift to number")
 
 ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
-  geom_density(aes(l, weight=biomass))+
+  geom_density(aes(l, weight=weight_numbers), fill="lightblue")+
+  geom_density(aes(l, weight=biomass), fill="#ffcccb")+
  xlab("Log of predator/prey mass ratio") + 
-  geom_line(aes(l, Density), data = numberdist, color = "red")+
-  geom_line(aes(l, Density), data = shiftnumberdist, color = "blue")+
-  ggtitle("Fitted to NUMBER, shift to Biomass")+
-  xlim(0,10)
+  geom_line(aes(l, Density), data = numberdist, color = "blue")+
+  geom_line(aes(l, Density), data = shiftnumberdist, color = "red")+
+  ggtitle("Fitted to NUMBER, shift to Biomass")
 
 ```
 
 I would say its a better fit. IT is still not that good.
+
+
+```{r}
+
+print(biomassestco)
+
+```

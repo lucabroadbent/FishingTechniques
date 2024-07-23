@@ -1,13 +1,15 @@
 ---
 title: "Common Dab"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-17"
 ---
 
 ```{r}
 library(dplyr)
 library(ggplot2)
-
+library(bbmle)
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
 sprat <- stom_df%>%filter(pred_taxa=="Limanda limanda")
@@ -148,13 +150,15 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
   labs(x = "Values", y = "Density") +
   ggtitle("Diet Density Plot from Number Distribution"))
 
-
+sprat$l <- log(sprat$ppmr)
+sprat <- sprat[!is.na(sprat$l),]
+x_vals <- seq(min(sprat$l), max(sprat$l), length.out = 1000)
 
 #I dont think I have done it right here, so I will do it in another way
 
 shifted_fit <- gmm
 shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+
-  (2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
+  (1)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
 
 #generating the density values 
 shifted_pdf <- sapply(x_vals, function(x) {
@@ -323,3 +327,9 @@ ggplot(stomach) +
 ```
 
 When fitted to number and shifted to biomass, it is good.
+
+```{r}
+
+print(numberestco)
+
+```

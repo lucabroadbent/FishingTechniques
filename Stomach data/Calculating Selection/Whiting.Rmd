@@ -1,13 +1,15 @@
 ---
 title: "Whiting"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-13"
 ---
 
 ```{r}
 library(dplyr)
 library(ggplot2)
-
+library(bbmle)
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
 whiting <- stom_df%>%filter(pred_taxa=="Merlangius merlangus")
@@ -41,7 +43,7 @@ There is still variation in the PPMR, but this might dissapear once I control
 for biomass contribution (diet)
 
 ```{r}
-dig <- 2/3
+dig <- 1
 
 ggplot(whiting, aes(x=(pred_weight_g), y=log(ppmr)))+
   geom_point()+
@@ -89,10 +91,12 @@ names(whiting)[names(whiting) == "logppmr"] <- "l"
 
 stomach <- whiting
 
+stomach <- stomach[!is.na(stomach$l),]
+
 names(stomach)[names(stomach) == "nprey_perpred"] <- "Nprey"
 
 stomach <- stomach %>% mutate(weight_numbers = Nprey / sum(Nprey))
-#stomach <- stomach%>%mutate(weight_numbers=Nprey*wprey^(2/3))
+#stomach <- stomach%>%mutate(weight_numbers=Nprey*wprey^(1))
 
 #defining the exponential and the MLE 
 fl <- function(l, alpha, ll, ul, lr, ur) {
@@ -239,7 +243,7 @@ Hopefully it moves across.
 
 ```{r}
 
-dist <- dtexp(grid, alpha = estco[1]-2/3, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
+dist <- dtexp(grid, alpha = estco[1]-1, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
 dist <- data.frame(l=grid, Density=dist)
 
 ggplot(stomach) + 
@@ -275,7 +279,7 @@ Ok the fit is good. Now will it shift??
 
 ```{r}
 
-dist <- dtexp(grid, alpha = estco[1]+2/3, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
+dist <- dtexp(grid, alpha = estco[1]+1, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
 dist <- data.frame(l=grid, Density=dist)
 
 ggplot(stomach) + 
@@ -285,7 +289,20 @@ ggplot(stomach) +
 
 ```
 
-This looks good. I think we have it 
+This looks good. I think we have it. (note, if we factor in the diet,
+so 1, then it looks very good - look below.)
 
      alpha         ll         ul         lr         ur 
 -0.3145214  3.6304283  4.5452752 13.3696362  1.6451461 
+
+```{r}
+
+dist <- dtexp(grid, alpha = estco[1]+1, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
+dist <- data.frame(l=grid, Density=dist)
+
+ggplot(stomach) + 
+  geom_density(aes(l, weight=Nprey))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = dist, color = "red")
+
+```

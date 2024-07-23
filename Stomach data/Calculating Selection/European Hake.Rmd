@@ -1,3 +1,8 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 Merluccius merluccius
 ---
 title: "European Hake"
@@ -8,6 +13,7 @@ date: "2024-07-17"
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(bbmle)
 
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
@@ -120,3 +126,10 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 ```
 
 This is a very nice shift I think. I think this works.
+
+```{r}
+
+print(gmm$parameters)
+
+
+```

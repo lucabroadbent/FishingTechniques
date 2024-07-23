@@ -1,6 +1,8 @@
 ---
 title: "Plaice"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-17"
 ---
 
@@ -121,7 +123,14 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 
 ```
 
-This isnt a terrible shift.
+This isnt a terrible shift. (It is the best shift we have, here is the 
+parameters)
+
+```{r}
+
+print(gmm$parameters)
+
+```
 
 ```{r}
 
@@ -155,6 +164,10 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 shifted_fit <- gmm
 shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+
   (2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
+
+sprat$l <- log(sprat$ppmr)
+sprat <- sprat[!is.na(sprat$l),]
+x_vals <- seq(min(sprat$l), max(sprat$l), length.out = 1000)
 
 #generating the density values 
 shifted_pdf <- sapply(x_vals, function(x) {

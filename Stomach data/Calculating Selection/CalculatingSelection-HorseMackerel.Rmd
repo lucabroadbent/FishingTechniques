@@ -472,6 +472,8 @@ ggplot(stomach) +
 It fits ok, but it is still not very good for the biomass density (the black 
 line on the left)
 
+
+
 I will try to use the density function derived from the biomass density to get 
 a distribution to use for the number density. 
 
@@ -519,4 +521,12 @@ print(est3)
 So the lowest PPMR should be higher if we want the distribution to work?
 
 I don't really follow this all at all. 
+
+
+```{r}
+
+
+
+
+```
 

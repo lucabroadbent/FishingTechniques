@@ -1,6 +1,8 @@
 ---
 title: "Cod"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-17"
 ---
 
@@ -8,6 +10,7 @@ date: "2024-07-17"
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(bbmle)
 
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
@@ -143,7 +146,7 @@ dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
 
 shifted_fit <- gmm
 shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+
-  (2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
+  (1)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
 
 stomach <- stomach%>%filter(!is.na(ppmr))
 
@@ -296,19 +299,20 @@ numberestco <- biomassco
 
 dist <- dtexp(grid, alpha = (numberestco[1]), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
 numberdist <- data.frame(l=grid, Density=dist)
-dist <- dtexp(grid, alpha = (numberestco[1]-2/3), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
+dist <- dtexp(grid, alpha = (numberestco[1]-1), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
 biomassdist <- data.frame(l=grid, Density=dist)
 #now plot these two together
 
 stomach <- stomach %>% mutate(biomass = nprey_perpred * prey_ind_weight_g)
 
 ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
-  geom_density(aes(l, weight=biomass))+
+  geom_density(aes(l, weight=weight_numbers), fill="lightblue")+
+  geom_density(aes(l, weight=biomass), fill="#ffcccb", alpha=0.5)+
  xlab("Log of predator/prey mass ratio") + 
   geom_line(aes(l, Density), data = biomassdist, color = "red")+
   geom_line(aes(l, Density), data = numberdist, color = "blue")+
-  xlim(0,13)
+  xlim(0,13)+
+  ggtitle("Fit to number, shift to diet")
 
 ```
 
@@ -331,23 +335,33 @@ dist <- data.frame(l=grid, Density=dist)
 ggplot(stomach) + 
   geom_density(aes(l, weight=nprey_perpred*stomach$prey_ind_weight_g^dig))+
  xlab("Log of predator/prey mass ratio") + 
-  geom_line(aes(l, Density), data = dist, color = "red")
+  geom_line(aes(l, Density), data = dist, color = "red")+
+  ggtitle("fit to diet")
 
 
 ```
 
 ```{r}
 
-dist <- dtexp(grid, alpha = estco[1]+2/3, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
+dist <- dtexp(grid, alpha = estco[1]+1, ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
 dist <- data.frame(l=grid, Density=dist)
 
 ggplot(stomach) + 
   geom_density(aes(l, weight=nprey_perpred))+
  xlab("Log of predator/prey mass ratio") + 
-  geom_line(aes(l, Density), data = dist, color = "red")
+  geom_line(aes(l, Density), data = dist, color = "red")+
+  ggtitle("shifted to diet from number")
 
 ```
 
 It doesnt fit well for both.
 
 But shifting across number to diet works the best I think.
+
+
+```{r}
+
+print(numberestco)
+
+
+```

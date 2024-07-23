@@ -44,7 +44,7 @@ only the middle ranges, to see if it changes much.
 
 ```{r}
 #diet contribution
-dig <- 2/3 
+dig <- 1 
 
 ggplot(mack, aes(x = wpredator, y = log(ppmr))) + 
   stat_summary_2d(aes(z = Nprey * wprey^dig), fun = "sum", bins = 60) +
@@ -141,7 +141,7 @@ PPMR distribution file.) First, I will do this for the number distribution
 stomach <- mack
 colnames(stomach) <- c("wprey", "w_pred", "Nprey", "pred_species", "ppmr", "l")
 stomach <- stomach %>% mutate(weight_numbers = Nprey / sum(Nprey))
-#stomach <- stomach%>%mutate(weight_numbers=Nprey*wprey^(2/3))
+#stomach <- stomach%>%mutate(weight_numbers=Nprey*wprey^(1))
 
 fl <- function(l, alpha, ll, ul, lr, ur) {
   dl <- ll - l
@@ -173,7 +173,7 @@ mle_texp <- function(df) {
 }
 
 #setting th weights
-#stomach <- stomach%>%mutate(weight_numbers=Nprey*wprey^(2/3))
+#stomach <- stomach%>%mutate(weight_numbers=Nprey*wprey^(1))
 #or for number density 
 #stomach <- stomach%>%mutate(weight_numbers=Nprey/sum(Nprey))
 
@@ -196,17 +196,17 @@ ggplot(stomach) +
 
 Ok, this works, it fits well. Now I have to fit this same distribution to the 
 biomass density, which as defined in the PPMR distributions document, you
-do alpha-2/3 (I think)
+do alpha-1 (I think)
 
 ```{r}
 
-stomach <- stomach%>%mutate(biomass=Nprey*wprey^(2/3))
+stomach <- stomach%>%mutate(biomass=Nprey*wprey^(1))
 
 grid = seq(0, 30, length.out = 200)
 #here, the alpha is meant to be -1, but I have to subtract 0.7 to make it work, 
 #so I am going to run the distribution again
 #for the biomass, and see the difference
-dist <- dtexp(grid, alpha = (estco[1]-(2/3)), ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
+dist <- dtexp(grid, alpha = (estco[1]-(1)), ll = estco[2], ul = estco[3], lr = estco[4], ur = estco[5])
 
 dist <- data.frame(l=grid, Density=dist)
 
@@ -317,7 +317,7 @@ mle_texp <- function(df) {
 
 # Assuming 'stomach' is already defined
 # setting the weights
-stomach <- stomach %>% mutate(weight_numbers = Nprey * wprey^(2/3))
+stomach <- stomach %>% mutate(weight_numbers = Nprey * wprey^(1))
 # or for number density 
 #stomach <- stomach %>% mutate(weight_numbers = Nprey / sum(Nprey))
 
@@ -350,7 +350,7 @@ both distributions
 #884 is problem line for the number density (idk why)
 stomach <- stomach[-884,]
 
-stomach <- stomach %>% mutate(weight_numbers = Nprey * wprey^(2/3))
+stomach <- stomach %>% mutate(weight_numbers = Nprey * wprey^(1))
 est <- mle_texp(stomach)
 biomassestco <- est@coef
 
@@ -367,7 +367,7 @@ numberdist <- data.frame(l=grid, Density=dist)
 
 #now plot these two together
 
-stomach <- stomach %>% mutate(biomass = Nprey * wprey^(2/3))
+stomach <- stomach %>% mutate(biomass = Nprey * wprey^(3/3))
 stomach <- stomach %>% mutate(weight_numbers = Nprey / sum(Nprey))
 
 ggplot(stomach) + 
@@ -401,21 +401,22 @@ ggplot(diffco, aes(x = factor(Coefficient), y = diffco)) +
  
  The difference between the alpha is not 1, it is about 0.625. 
  I am not sure why, as stated in the PPMR document,
- the difference should be 2/3 (I am also not sure why this is)
+ the difference should be 1 (I am also not sure why this is)
  
  Now I will just plot the distribution derived from the number density, 
  and I will try to change the alpha value to calculate the truncated exponential
- distribution for the biomass density by -2/3.
+ distribution for the biomass density by -1.
  
 ```{r}
 
 dist <- dtexp(grid, alpha = (numberestco[1]), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
 numberdist <- data.frame(l=grid, Density=dist)
-dist <- dtexp(grid, alpha = (numberestco[1]-(2/3)), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
+dist <- dtexp(grid, alpha = (numberestco[1]-(1)), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
 biomassdist <- data.frame(l=grid, Density=dist)
 #now plot these two together
 
-stomach <- stomach %>% mutate(biomass = Nprey * wprey^(2/3))
+
+stomach <- stomach %>% mutate(biomass = Nprey * wprey)
 
 ggplot(stomach) + 
   geom_density(aes(l, weight=weight_numbers), color="black")+
@@ -436,11 +437,13 @@ a distribution to use for the number density.
 
 dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
 biomassdist <- data.frame(l=grid, Density=dist)
-dist <- dtexp(grid, alpha = (biomassestco[1]+2/3), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+dist <- dtexp(grid, alpha = (biomassestco[1]+1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
 numberdist <- data.frame(l=grid, Density=dist)
 #now plot these two together
 
-stomach <- stomach %>% mutate(biomass = Nprey * wprey^(2/3))
+bion <- biomassestco
+
+stomach <- stomach %>% mutate(biomass = Nprey * wprey^(1))
 
 ggplot(stomach) + 
   geom_density(aes(l, weight=weight_numbers))+
@@ -498,7 +501,7 @@ so it may not work well.
 
 ```{r}
 
-clusterdata <- repeat_elements(stomach$l, stomach$Nprey*stomach$wprey^(2/3))
+clusterdata <- repeat_elements(stomach$l, stomach$Nprey*stomach$wprey^(1))
 
 biomassgmm <- densityMclust(clusterdata, G=2)
 
@@ -511,7 +514,7 @@ so that we do not need 2 equations.
 
 Will first try to shift the number distribution to the biomass,
 I am doing this by shifting the mean by the variance (of each of the gaussians)
-multipled by 2/3.
+multipled by 1.
 
 Trying to extract the data now so I can plot on top of other density plots
 
@@ -520,7 +523,7 @@ dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
 
 #weightings, necessary later
 stomach$weight_numbers <- stomach$Nprey
-stomach$weight_biomass <- stomach$Nprey*stomach$wprey^(2/3)
+stomach$weight_biomass <- stomach$Nprey*stomach$wprey^(1)
 
 
 # Plot with ggplot2
@@ -533,15 +536,15 @@ stomach$weight_biomass <- stomach$Nprey*stomach$wprey^(2/3)
 
 Ok, I am able to extract and plot, now I will try to plot the biomass weighting.
 As I am transforming the diet PDF to fit the biomass density plots, I should
--2/3 of the variance.
+-1 of the variance.
 
 ```{r}
 #add biomass column
-stomach$weight_biomass <- stomach$Nprey*stomach$wprey^(2/3)
+stomach$weight_biomass <- stomach$Nprey*stomach$wprey^(1)
 stomach$weight_biomass <- stomach$weight_biomass/sum(stomach$weight_biomass)
 
 gmm2 <- gmm
-gmm2[["parameters"]][["mean"]] <- gmm2[["parameters"]][["mean"]]-(2/3)*gmm2[["parameters"]][["variance"]][["sigmasq"]]
+gmm2[["parameters"]][["mean"]] <- gmm2[["parameters"]][["mean"]]-(1)*gmm2[["parameters"]][["variance"]][["sigmasq"]]
 
 #so this next section of code is generating new densities from the new PDF.
 x_vals <- seq(min(stomach$l), max(stomach$l), length.out = 1000)
@@ -564,7 +567,7 @@ can be shifted to the number density.
 ```{r}
 
 #set the correct weighting. and getting the biomass PDF
-clusterdata <- repeat_elements(stomach$l, stomach$Nprey*stomach$wprey^(2/3))
+clusterdata <- repeat_elements(stomach$l, stomach$Nprey*stomach$wprey^(1))
 
 dplot <- data.frame(x=biomassgmm[["data"]], density=biomassgmm[["density"]])
 
@@ -578,7 +581,7 @@ dplot <- data.frame(x=biomassgmm[["data"]], density=biomassgmm[["density"]])
 #now going to transform by e^l
 
 shifted_fit <- biomassgmm
-shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+(2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
+shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+(1)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
 
 #generating the density values 
 shifted_pdf <- sapply(x_vals, function(x) {
@@ -586,7 +589,7 @@ shifted_pdf <- sapply(x_vals, function(x) {
 })
 
 #this next code works if you dont change the mean parameter
-#shifted_pdf <- shifted_pdf * exp((2/3)*x_vals)
+#shifted_pdf <- shifted_pdf * exp((1)*x_vals)
 #Normalize the transformed density
 #integral_shifted_pdf <- sum(shifted_pdf) * (x_vals[2] - x_vals[1])
 #shifted_pdf_normalized <- shifted_pdf / integral_shifted_pdf
@@ -687,5 +690,13 @@ boot4 <- MclustBootstrap(biomassgmm, nboot = 999, type = "bs")
 plot(boot4, what = "pro")
 plot(boot4, what = "mean")
   summary(boot4)
+
+```
+
+Here is the parameters
+
+```{r}
+
+print(bion )
 
 ```

@@ -1,6 +1,8 @@
 ---
 title: "Kernel - Sprat"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-12"
 ---
 
@@ -28,7 +30,7 @@ ggplot(sprat, aes(x=pred_weight_g, y=log(ppmr)))+
 Not good. Will now plot the same but with the diet weighting
 
 ```{r}
-dig <- 2/3
+dig <- 1
 
 ggplot(sprat, aes(x=pred_weight_g, y=log(ppmr)))+
   geom_point()+
@@ -121,7 +123,7 @@ repeat_elements <- function(data, weights) {
 spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
 
 gmm <- densityMclust(spratnu, G=3)
-
+ngmm <- gmm
 ```
 
 Ok, now lets plot it over the number density.
@@ -211,7 +213,7 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 
 shifted_fit <- gmm
 shifted_fit[["parameters"]][["mean"]] <- shifted_fit[["parameters"]][["mean"]]+
-  (2/3)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
+  (1)*shifted_fit[["parameters"]][["variance"]][["sigmasq"]]
 
 #generating the density values 
 shifted_pdf <- sapply(x_vals, function(x) {
@@ -238,3 +240,10 @@ PPMR distribution, so this is probably our best bet.
 the diet density function to fit the number density, as it seems wildly wrong.
 I followed the same process as before, but the shifted number density 
 does not fit in the slightest)
+
+
+```{r}
+
+print(ngmm$parameters)
+
+```

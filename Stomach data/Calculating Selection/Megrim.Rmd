@@ -1,6 +1,8 @@
 ---
 title: "Megrim"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-17"
 ---
 
@@ -15,6 +17,8 @@ sprat <- stom_df%>%filter(pred_taxa=="Lepidorhombus whiffiagonis")
 ```
 
 ```{r}
+
+sprat <- sprat%>%filter(pred_weight_g<3000)
 
 ggplot(sprat, aes(x=pred_weight_g, y=log(ppmr)))+
   geom_point()+
@@ -121,3 +125,9 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 ```
 
 This shifts very well.
+
+```{r}
+
+print(gmm$parameters)
+
+```

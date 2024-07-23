@@ -1,13 +1,15 @@
 ---
 title: "Sole"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-17"
 ---
 
 ```{r}
 library(dplyr)
 library(ggplot2)
-
+library(bbmle)
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
 sprat <- stom_df%>%filter(pred_taxa=="Solea solea")
@@ -123,3 +125,9 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 ```
 
 This shifts very well. WE can use.
+
+```{r}
+
+print(gmm$parameters)
+
+```

@@ -1,13 +1,15 @@
 ---
 title: "Kernel - Norway Pout"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-07-12"
 ---
 
 ```{r}
 library(dplyr)
 library(ggplot2)
-
+library(bbmle)
 load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
 
 sprat <- stom_df%>%filter(pred_taxa=="Trisopterus esmarkii")
@@ -39,8 +41,9 @@ ggplot(sprat, aes(x=pred_weight_g, y=log(ppmr)))+
 ```
 
 
-When looking at the contribution to the diet, the PPMR does not change across
-predator sizes.
+When looking at the contribution to the diet, there is variation around 
+a PPMR value, but this might be to do with the groupings of the pred weights,
+so I think it is safe to say that PPMR is the same across all pred sizes.
 
 So first, lets lot the density to see what might best fit.
 
@@ -87,6 +90,7 @@ ggplot()+
   geom_point(data=sprat, aes(x=nprey_perpred, y=log(ppmr)))
 
 #There is one point at around 12, which is a bit of an outlier. I will remove it.
+#it changes the gaussians fitted too much.
 
 sprat <- sprat%>%filter(nprey_perpred<600)
 
@@ -144,9 +148,9 @@ This is not bad, this works well. I will shift it over now.
 ```{r}
 
 #sorting out the column names and cleaning the data
-#sprat$l <- log(sprat$ppmr)
-#sprat <- sprat[!is.na(sprat$l),]
-#x_vals <- seq(min(sprat$l), max(sprat$l), length.out = 1000)
+sprat$l <- log(sprat$ppmr)
+sprat <- sprat[!is.na(sprat$l),]
+x_vals <- seq(min(sprat$l), max(sprat$l), length.out = 1000)
 
 #now creating the new density 
 
@@ -166,9 +170,7 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
 
 ```
 
-It doesn't shift over very well.
-
-ss
+It doesn't shift over very well. Will fit to the biomass
 distribution, then see if it works for the number distribution.
 
 ```{r}
@@ -195,8 +197,6 @@ dplot <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
   #geom_line(data=dplot, aes(x = x, y = density), color="red") +
   labs(x = "Values", y = "Density") +
   ggtitle("Diet Density Plot from Number Distribution"))
-
-
 
 #I dont think I have done it right here, so I will do it in another way
 
@@ -225,8 +225,8 @@ This also doesnt shify very well. Should I try the exponential?
 ```{r}
 
 stomach <- sprat
-stomach$l <- log(stomach$ppmr)
-stomach <- stomach[!is.na(stomach$l),]
+#stomach$l <- log(stomach$ppmr)
+#stomach <- stomach[!is.na(stomach$l),]
 stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
 
 fl <- function(l, alpha, ll, ul, lr, ur) {
@@ -352,21 +352,24 @@ shiftnumberdist <- data.frame(l=grid, Density=shiftdist)
 stomach <- stomach %>% mutate( biomass = nprey_perpred * prey_ind_weight_g)
 
 ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
-  geom_density(aes(l, weight=biomass))+
+  geom_density(aes(l, weight=weight_numbers), fill="lightblue")+
+  geom_density(aes(l, weight=biomass), fill="#ffcccb")+
  xlab("Log of predator/prey mass ratio") + 
   geom_line(aes(l, Density), data = biomassdist, color = "red")+
   geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
   ggtitle("Fitted to Biomass, shift to number")
 
 ggplot(stomach) + 
-  geom_density(aes(l, weight=weight_numbers))+
-  geom_density(aes(l, weight=biomass))+
+  geom_density(aes(l, weight=weight_numbers), fill="lightblue")+
+  geom_density(aes(l, weight=biomass), fill="#ffcccb")+
  xlab("Log of predator/prey mass ratio") + 
-  geom_line(aes(l, Density), data = numberdist, color = "red")+
-  geom_line(aes(l, Density), data = shiftnumberdist, color = "blue")+
+  geom_line(aes(l, Density), data = numberdist, color = "blue")+
+  geom_line(aes(l, Density), data = shiftnumberdist, color = "red")+
   ggtitle("Fitted to NUMBER, shift to Biomass")
+
+print(biomassestco)
 
 ```
 
-This fit is pretty good.
+When fitted to biomass, and shifted to number, it is good enough.
+
