@@ -1,0 +1,1083 @@
+---
+title: "Final Predation Kernels"
+output:
+  pdf_document:
+    keep_tex: true
+    includes:
+      in_header: 123.tex
+date: "2024-07-22"
+---
+
+```{r, include=FALSE}
+
+fl <- function(l, alpha, ll, ul, lr, ur) {
+  dl <- ll - l
+  dr <- l - lr
+  fl_values <- exp(alpha * l) / (1 + exp(ul * dl)) / (1 + exp(ur * dr))
+  
+  # Debugging output
+  if (any(!is.finite(fl_values))) {
+    print("Non-finite fl values found")
+    print(fl_values)
+  }
+  
+  return(fl_values)
+}
+
+## Define the truncated exponential PDF with debugging
+dtexp <- function(l, alpha, ll, ul, lr, ur) {
+  fl_values <- fl(l, alpha, ll, ul, lr, ur)
+  
+  integral_result <- tryCatch(
+    integrate(fl, 0, 30, alpha = alpha, ll = ll, ul = ul, lr = lr, ur = ur),
+    error = function(e) {
+      print("Integration failed")
+     print(e)
+      return(NULL)
+    }
+   )
+   
+   if (is.null(integral_result)) {
+     return(rep(NA, length(l)))
+   }
+   
+   d <- fl_values / integral_result$value
+   
+  # Debugging output
+  if (any(!is.finite(d))) {
+    print("Non-finite d values found")
+    print(d)
+  }
+  
+  return(d)
+}
+
+ #Define the MLE function with debugging
+mle_texp <- function(df) {
+  loglik <- function(alpha, ll, ul, lr, ur) {
+    L <- dtexp(df$l, alpha, ll, ul, lr, ur)
+    
+    # Debugging output
+    if (any(!is.finite(L) | L <= 0)) {
+     print("Non-finite or non-positive L values found")
+      print(which(!is.finite(L) | L <= 0))
+      return(Inf)
+    }
+    
+    -sum(log(L) * df$weight_numbers)
+  }
+  
+  result <- tryCatch(
+    mle2(loglik, start = list(
+      alpha = 0.5,
+      ll = min(df$l),
+      lr = max(df$l),
+      ul = 5,
+      ur = 5
+    ), method = "L-BFGS-B", control = list(maxit = 10000)),
+    error = function(e) {
+      print("MLE fitting failed")
+      print(e)
+      return(NULL)
+    }
+  )
+  
+  return(result)
+}
+
+
+```
+
+```{r, include=FALSE}
+library(ggplot2)
+library(bbmle)
+library(dplyr)
+library(mclust)
+setwd("C:/Users/lucab/OneDrive/Desktop/FishingTechniques")
+load("stomach_dataset.Rdata") 
+dig <- 1
+```
+
+## Cod
+
+[Cod PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Cod.pdf)
+[Cod RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Cod.Rmd)
+
+For Cod, the fit wasn't very good. The structure of the PPMR distributions are
+different compared to all other species, as it has multiple small peaks. I 
+think this is due to the large dataset that we have for cod. However, this 
+irregular PPMR density shape means that the shifted fit of biomass from number
+distribution is not very good. Additionally, as we have a lot of data, the 
+structure of the data may be affecting the fit, as it might have many different 
+years and regions. So if we wanted a better fit, we could subset the data 
+for the most recent years and try again.
+
+```{r, echo = FALSE, warning=FALSE}
+dig <- 1
+sprat <- stom_df%>%filter(pred_taxa=="Gadus morhua")
+sprat <- sprat%>%filter(nprey_perpred>0)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l))
+
+est <- mle_texp(stomach)
+
+biomassco <- est@coef
+
+numberestco <- biomassco
+
+grid = seq(min(stomach$l), max(stomach$l), length.out = 200)
+dist <- dtexp(grid, alpha = (numberestco[1]), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
+numberdist <- data.frame(l=grid, Density=dist)
+dist <- dtexp(grid, alpha = (numberestco[1]-1), ll = numberestco[2], ul = numberestco[3], lr = numberestco[4], ur = numberestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+#now plot these two together
+
+stomach <- stomach %>% mutate(biomass = nprey_perpred * prey_ind_weight_g)
+
+(codplot <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  geom_line(aes(l, Density), data = numberdist, color = "blue")+
+  xlim(0,13)+
+  ggtitle("Cod - Fit to number, shift to diet")+
+  theme_minimal())
+
+cod <- numberestco
+
+```
+
+## Blue Whiting
+
+[Blue Whiting PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Blue-Whiting.pdf)
+[Blue Whiting RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Blue%20Whiting.Rmd)
+
+The fit for Blue Whiting was very good. But it appears that there are 2 
+feeding modes and that they eat very large prey (corroborated [here](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0149238))
+The feeding modes have also been described  in [literature](https://www.sciencedirect.com/science/article/pii/S0967063720301916)
+and they may be due to seasonal food availability. 
+
+```{r, echo = FALSE, warning=FALSE}
+sprat <- stom_df%>%filter(pred_taxa=="Micromesistius poutassou")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l))
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred * prey_ind_weight_g)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]+1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(bluewhit <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
+  ggtitle("Blue Whiting - Fitted to Biomass, shift to number"))+
+  theme_minimal()
+
+bluewhiting <- biomassestco
+
+```
+
+## Common Dab
+
+[Common Dab PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Common-Dab.pdf)
+[Common Dab RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Common%20Dab.Rmd)
+
+Commmon Dab has a very good fit to the data. But appears to have two feeding 
+modes - this is most likely due to two different years or areas. As the feeding
+ecology of dab is that it is a highly generalist [feeder](https://onlinelibrary.wiley.com/doi/full/10.1111/j.0022-1112.2005.00918.x?casa_token=Nnnpa_mVyRsAAAAA%3Aa7xeBKbgE-SPslAukJhplHLqpYV5BFe7q968_8s4VwZreOs0U6SOn2cno7EYmEFsWM3yoJOnjJ5615w), so two separate feeding modes would not make any sense.
+
+(After checking the structure, there is no difference in the years sampled
+between the two feeding modes, and there doesn't appear to be a difference in 
+the regions that the samples were taken from) So therefore it is likely that 
+the appearance of the feeding modes is due to the fact that we haven't sampled
+enough.
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Limanda limanda")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l))
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]-1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(comdab <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "blue")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "red")+
+  ggtitle("Common Dab - Fitted to number, shift to biomass")+
+  theme_minimal())
+
+commondab <- biomassestco
+
+```
+
+```{r, include=FALSE, echo = FALSE}
+repeat_elements <- function(data, weights) {
+
+    valid_indices <- !is.na(data) & !is.na(weights)
+  data <- data[valid_indices]
+  weights <- weights[valid_indices]
+  
+  final_vector <- c()
+
+  for (i in seq_along(data)) {
+
+    rounded_weight <- round(weights[i])
+
+    repeated_values <- rep(data[i], times = rounded_weight)
+
+    final_vector <- c(final_vector, repeated_values)
+  }
+  
+  return(final_vector)
+}
+```
+
+## European Hake
+
+[European Hake PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/European-Hake.pdf)
+[European Hake RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/European%20Hake.Rmd)
+
+European Hake has a good fit, however, strangely, accounting for biomass
+does not change the density distribution. (this makes it very hard to look at 
+the fitted functions, so they have been separated). Also strangely, it appears
+to be a very specialist predator, it has a single density peak and a 
+low variance. But the [literature](https://www.sciencedirect.com/science/article/pii/S2352485523005042)
+doesn't support this fact, it says that European Hake interacts with nearly
+every species in the ecosystem, and eats everything. So I guess it does eat a 
+range of species, but will only eat a certain size of species, additionally, it 
+only eats species with a high biomass, and doesn't eat any prey that won't
+contribute greatly to its diet.
+
+
+```{r, echo = FALSE, warning=FALSE}
+sprat <- stom_df%>%filter(pred_taxa=="Merluccius merluccius")
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+gmm <- densityMclust(spratnu, G=2)
+
+dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
+
+
+newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
+shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
+
+#making new dataframe
+dplot2 <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
+
+
+(hakenumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=shifted_pdf_normalized), color="blue")+
+  labs(x = "Values", y = "Density") +
+  ggtitle("European Hake - Fitted to number, shifted to biomass")+
+    theme_minimal())
+#only number
+(hakenumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("European Hake -Number Density Plot from Number Distribution")+
+    theme_minimal())
+#only biomass
+(hakenumbfitbio <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=density), color="blue", alpha=0.5)+
+  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("European Hake -Diet Density Plot from Number Distribution")+
+    theme_minimal())
+
+hake <- gmm$parameters
+
+```
+
+## Haddock
+
+[Haddock PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Haddock.pdf)
+[Haddock RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Haddock.Rmd)
+
+Haddock has a good fit. I couldn't find much on the feeding ecology of 
+Haddock to match these results to, but Haddock has a lot of stomach contents
+data, so I think it is okay to believe these results. 
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Melanogrammus aeglefinus")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l))
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+stomach <- stomach%>%filter(nprey_perpred<2000)
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]-1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(haddock <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "blue")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "red")+
+  ggtitle("Haddock - Fitted to number, shift to biomass")+theme_minimal())
+
+haddockco <- biomassestco
+
+```
+
+## Horse Mackerel
+
+[Horse Mackerel PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Horse%20Mackerel.pdf)
+[Horse Mackerel RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Stomach%20Contents%20Datasets.Rmd)
+
+Horse Mackerel has a good fit. The fact that there appears to be multiple
+feeding modes in the biomass fit could be due to the fact that Horse Mackerel
+feeding behavior has been shown to be due to [environmental factors](Our results support the hypothesis that feeding behavior of T. trachurus is strictly linked to environmental factors), and the
+data has been collected from multiple areas.
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_species=="Trachurus trachurus")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l), l>0)
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred*stomach$prey_ind_weight_g)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+stomach <- stomach[-884,]
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]+1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(horsemackerel <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
+  ggtitle("Horse Mackerel - Fitted to biomass, shift to number")+
+    theme_minimal())
+
+horsemackerelco <- biomassestco
+
+
+```
+ 
+## Mackerel
+
+[Mackerel PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Mackerel.pdf)
+[Mackerel RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Mackerel.Rmd)
+
+The mackerel fit is good, and is very similar to the fit to the horse mackerel.
+Mackerel has a wider density function that other species, maybe due to the fact
+that it has seasonal migrations and also is an opportunistic predator. [Source](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6937200/#:~:text=The%20Northeast%20Atlantic%20mackerel%20are,dominant%20species%20available%20to%20them.)
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Scomber scombrus")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l), l>0)
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred*stomach$prey_ind_weight_g)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]+1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(mackerelplot <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
+  ggtitle("Mackerel - Fitted to biomass, shift to number")+
+  theme_minimal())
+
+mackerel <- biomassestco
+
+
+```
+
+## Megrim
+
+The fit to Megrim is good I think. Megrim seems to feed primarily on items of
+prey that contribute highly to the diet, but there is also a large range
+of prey sizes that Megrim feeds on. What this could be, is that Megrim 
+has been noted to have large seasonal variations in prey availability (this 
+might be only because the study was in the Adriatic Sea), meaning that in 
+winter the proportion of Megrim with empty stomachs increases. Therefore, in 
+winter, the diet desperation might mean that they expand their prey selection
+kernel. [Source](https://onlinelibrary.wiley.com/doi/full/10.1111/j.1439-0426.2009.01257.x)
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Lepidorhombus whiffiagonis")
+
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+gmm <- densityMclust(spratnu, G=2)
+
+dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
+
+
+newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
+shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
+
+#making new dataframe
+dplot2 <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
+
+
+(megrimnumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=shifted_pdf_normalized), color="blue")+
+  labs(x = "Values", y = "Density") +
+  ggtitle("Megrim - Fitted to number, shifted to biomass")+theme_minimal())
+#only number
+(megrimnumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Number Density Plot from Number Distribution")+theme_minimal())
+#only biomass
+(megrimnumbfitbio <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=density), color="blue", alpha=0.5)+
+  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Diet Density Plot from Number Distribution")+theme_minimal())
+
+megrim <- gmm$parameters
+
+```
+
+## Monkfish
+
+[Monkfish PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Monkfish.pdf)
+[Monkfish RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Monkfish.Rmd)
+
+Monkfish has an okay fit. It is difficult to fit to this PPMR distribution
+as it has many separate peaks. We do not have much data on monkfish, but it 
+seems to be enough. Monkfish has a very large mouth so it makes sense that 
+the PPMR is low, and the separate peaks may be because it is opportunistic and
+so the peaks are the only prey available.
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Lophius piscatorius")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l), l>0)
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred*stomach$prey_ind_weight_g,
+                              biomass = nprey_perpred*stomach$prey_ind_weight_g)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]+1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(monkbio <- ggplot(stomach) + 
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+    geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  ggtitle("Monkfish - Fitted biomass")+theme_minimal())
+(monknum <- ggplot(stomach) + 
+  geom_density(aes(l, weight=nprey_perpred))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
+  ggtitle("Monkfish - shifted to number")+theme_minimal())
+
+monk <- est@coef
+
+```
+
+## Norway pout 
+
+[Norway pout PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Norway-Pout.pdf)
+[Norway pout RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Norway%20Pout.Rmd)
+
+The fit to Norway Pout is okay. The distribution for biomass and number both
+have many small peaks, which is probably due to the small sample size. However,
+it also might be due to Norway pout moving deeper in the water column as it 
+gets bigger/older [Source](https://watermark.silverchair.com/51-1-45.pdf?token=AQECAHi208BE49Ooan9kkhW_Ercy7Dm3ZL_9Cf3qfKAc485ysgAAA1IwggNOBgkqhkiG9w0BBwagggM_MIIDOwIBADCCAzQGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMSvvwAJLUEMOpF7DTAgEQgIIDBYPJ2doZqPtEUCsf_rtqh0yqGz3YY0OFwaeY9hEBxC1v2nN3rSiu2RQ3Mpg10euw8KHsv1DDKC69Zp30GSt798xS6-uj7xBuozgqBwLX_rEwmzPIMC5lpfu0wwEnpVR5esfH8Btr2C-nVuzHYMn4B4mOESufuy6xldR8lExxFEwTyrE9y2zf127IKez6tHihBydx2zNKrWT2ZICxmQRLwbbboKouaXuu28A-hC-frTxujh0QiHkPSVfrUcKbneCLkrIVa8AtBvQFnmCRRlhrtaIoW3EImZlxR5g91duenAy7JRyF2EFl7KM7c7ZWJB_T5q3A5Zc2QcrEIINGZg39HJUqwv6ZLcwlIq8k47kz5hOWzwMTXn-GX0EkQGEuZIStc1ys3B7e1SKjvX9-Uu0YhfpnsbBJ4Zb_X0tyuU0lGlGgFnBOLm6eediEzTvyiqRQiuXPUUy9GJVy98nPuBuJrUfzg03qSy4YZzhMr7QOBtQH9aiT_GbWh2_GUzG5DCIAq2dhBhIXmd13qSRCW3LWIv5L59t8IHO9No6hltmFGTl8Qzp390rmYSpHXpHovrHG4mLQQkzM8bO8Yx_Q39sFo0oQsHV_XmT3KnVrkJeaj2ZiZoMvLqjqANTU8iWGTBBcCi3BRRyFbV6tbtHcyQWkYU-GjeVr50As8Sr_r_YjemKZpjO8gDFPMcx0XvdOnuVTmrjAUeuQnKKP1bHXXxjLOz83IW6PZM33wTnD60r9b6s4T_-Vwrcxv7zJ4QpJ8ju8Xv0qEEjIFVVc-Yt2JzeFc7EZ8xa8bsYYfSuDJ0dOgi9ik3Y2HMxYmxoERIJfK9fKGdV2IRQFWhUSGhiXqeXYoJ6NTXqR5ReCc_HUuSY1oNl2f3CEE0WgrX-pg03wMQom5rW6-xG7nUBjLRQqUCo0p63hcVYN90dVMRXoQ8p9tWGVTDm_MX8pbiwIhUC4V7LMJonk1IzDYg99SZ3KxrKp0zWtox1z_I9dV36bPVP8L8suZbRt2G_6diRovp8edgLx_uR61XDG), so therefore there could be multiple 
+feeding modes. Also, it is a relatively small species, and feeds on larvae, 
+plankton, and small fish. So therefore, there may be some sampling bias as 
+these items digest fast and are hard to study. Regardless, the fit is good
+enough.
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Trisopterus esmarkii")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l), l>0)
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred*stomach$prey_ind_weight_g)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]+1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(norwaypout <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
+  ggtitle("Norway Pout - Fitted to biomass, shift to number")+
+  theme_minimal())
+
+npout <- est@coef
+
+```
+
+## Plaice
+
+[Plaice PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Plaice.pdf)
+[Plaice RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Plaice.Rmd)
+
+Plaice has a pretty good fit for how hard the data is to fit to. The fit is
+also very similar to Megrim, but not to the Common Dab, even if they are all
+flatfish (I think) (This makes sense, as the Common Dab and Plaice have been 
+shown not to compete for [food](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1095-8649.2001.tb00531.x))
+I cannot find much on the feeding ecology of Plaice, but we have a relatively
+large sample size here, so I think the results are reliable.
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Pleuronectes platessa")
+
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+gmm <- densityMclust(spratnu, G=2)
+
+dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
+
+
+newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
+shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
+
+#making new dataframe
+dplot2 <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
+
+
+(plaicenumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=shifted_pdf_normalized), color="blue")+
+  labs(x = "Values", y = "Density") +
+  ggtitle("Plaice - Fitted to number, shifted to biomass")+
+  theme_minimal())
+#only number
+(plaicenumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Number Density Plot from Number Distribution")+
+  theme_minimal())
+#only biomass
+(plaicenumbfitbio <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=density), color="blue", alpha=0.5)+
+  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Diet Density Plot from Number Distribution")+
+  theme_minimal())
+
+plaice <- gmm$parameters
+
+```
+
+## Poor Cod
+
+[Poor Cod PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Poor--Cod.pdf)
+[Poor Cod RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Poor%20%20Cod.Rmd)
+
+The fit for poor cod is okay. We do not have a large sample size here, which 
+may be why there are many small peaks but also may be due to the seasonal, 
+regional and ontogenic differences in diet [source](https://www.sciencedirect.com/science/article/pii/0165783694900442)
+Regardless, the fit we have covers the range of PPMR in the number/biomass 
+distributions. It jsut hides the feeding modes that may or may not be present.
+
+```{r, echo = FALSE, warning=FALSE}
+sprat <- stom_df%>%filter(pred_taxa=="Trisopterus minutus")
+sprat <- sprat%>%filter(nprey_perpred>0)
+stomach <- sprat
+stomach <- stomach%>%mutate(l=log(ppmr))%>%filter(!is.na(l), l>0)
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+stomach$biomass <- stomach$nprey_perpred*stomach$prey_ind_weight_g
+
+
+est <- mle_texp(stomach)
+biomassestco <- est@coef
+
+stomach <- stomach %>% mutate(weight_numbers = nprey_perpred)
+grid = seq(0, 30, length.out = 200)
+
+dist <- dtexp(grid, alpha = (biomassestco[1]), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+biomassdist <- data.frame(l=grid, Density=dist)
+
+shiftdist <- dtexp(grid, alpha = (biomassestco[1]-1), ll = biomassestco[2], ul = biomassestco[3], lr = biomassestco[4], ur = biomassestco[5])
+shiftbiomassdist <- data.frame(l=grid, Density=shiftdist)
+
+(poorcod <- ggplot(stomach) + 
+  geom_density(aes(l, weight=weight_numbers))+
+  geom_density(aes(l, weight=biomass))+
+ xlab("Log of predator/prey mass ratio") + 
+  geom_line(aes(l, Density), data = biomassdist, color = "red")+
+  geom_line(aes(l, Density), data = shiftbiomassdist, color = "blue")+
+  ggtitle("Poor Cod - Fitted to biomass, shift to number")+
+  theme_minimal())
+
+poorcodco <- est@coef
+
+```
+
+## Sole
+
+[Sole PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Sole.pdf)
+[Sole RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Sole.Rmd)
+
+Sole's fit is extremely good. But it has an very small sample size (229 not 
+accounting for the weightings). There appears to be two different feeding
+modes, which is corroborated by the literature, as it has been shown that 
+sole favours high energetic prey (high biomass content) when the female soles
+are approaching their reproductive cycle. [source](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9736202/)
+We can see this as the 2 gaussians fit to this data.
+
+```{r, echo = FALSE, warning=FALSE}
+sprat <- stom_df%>%filter(pred_taxa=="Solea solea")
+
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+gmm <- densityMclust(spratnu, G=2)
+
+dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
+
+
+newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
+shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
+
+#making new dataframe
+dplot2 <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
+
+
+(solenumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=shifted_pdf_normalized), color="blue")+
+  labs(x = "Values", y = "Density") +
+  ggtitle("Sole - Fitted to number, shifted to biomass")+
+  theme_minimal())
+#only number
+(solenumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Number Density Plot from Number Distribution")+
+  theme_minimal())
+#only biomass
+(solenumbfitbio <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=density), color="blue", alpha=0.5)+
+  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Diet Density Plot from Number Distribution")+
+  theme_minimal())
+
+sole <- gmm$parameters
+
+```
+
+## Sprat
+
+[Sprat PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Sprat.pdf)
+[Sprat RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Sprat.Rmd)
+
+Sprat has a good fit, which is suprising given the PPMR distribution is
+complicated. There are a few different things each of the feeding modes 
+could be, seasonal differences, day/night feeding changes, or maybe
+different regions. [Source](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.0022-1112.2004.00566.x)
+Regardless, the fit is very good, and it has a decent enough sample size to
+believe.
+
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Sprattus sprattus")
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+gmm <- densityMclust(spratnu, G=3)
+
+dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
+
+
+newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
+shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
+
+#making new dataframe
+dplot2 <- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
+
+
+(spratnumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=shifted_pdf_normalized), color="blue")+
+  labs(x = "Values", y = "Density") +
+  ggtitle("Sole - Fitted to number, shifted to biomass")+
+  theme_minimal())
+#only number
+(spratnumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Number Density Plot from Number Distribution")+
+  theme_minimal())
+#only biomass
+(spratnumbfitbio <- ggplot() +
+   geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2, aes(x, weight=density), color="blue", alpha=0.5)+
+  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Diet Density Plot from Number Distribution")+
+  theme_minimal())
+
+spratpar <- gmm$parameters
+
+
+```
+
+
+## Spurdog
+
+[Spurdog PDF file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20Content%20Kernels/Spurdog.pdf)
+[Spurdog RMD file](https://github.com/lucabroadbent/FishingTechniques/blob/main/Stomach%20data/Calculating%20Selection/Spurdog.Rmd)
+
+The Spurdog fit is okay, it is a difficult distribution to fit as it 
+appears to have multiple feeding modes. Regional, seasonal and ontogenic 
+diet differences were found [Source](https://academic.oup.com/icesjms/article/62/6/1076/616640)
+so we could be observing this in the data. Additionally, the wide PPMR 
+range is corroborated by [Source](https://www.publish.csiro.au/mf/mf17018), 
+and this source also states that teleosts  = 80.32, cephalopods 11.96% 
+and crustaceans 7.68%, which could be these 3 feeding modes that we 
+are observing. Still, this is a good fit and describes our data.
+
+```{r, echo = FALSE, warning=FALSE}
+
+sprat <- stom_df%>%filter(pred_taxa=="Squalus acanthias")
+sprat <- sprat%>%filter(nprey_perpred<200)
+spratnu <- repeat_elements(log(sprat$ppmr), sprat$nprey_perpred)
+sprat$weight_numbers <- sprat$nprey_perpred
+sprat$weight_biomass <- sprat$nprey_perpred*sprat$prey_ind_weight_g^dig
+gmm <- densityMclust(spratnu, G=2)
+
+dplot <- data.frame(x=gmm[["data"]], density=gmm[["density"]])
+
+
+newspratdens <- gmm[["density"]]*exp(-dig*gmm[["data"]])
+shifted_pdf_normalized <- newspratdens / sum(newspratdens) 
+
+#making new dataframe
+dplot2spur<- data.frame(x=gmm[["data"]], density=shifted_pdf_normalized)
+
+
+(spurdognumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2spur, aes(x, weight=shifted_pdf_normalized), color="blue")+
+  labs(x = "Values", y = "Density") +
+  ggtitle("Spurdog - Fitted to number, shifted to biomass"+
+  theme_minimal()))
+#only number
+(spurdognumbfit <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_numbers))+
+  geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Number Density Plot from Number Distribution")+
+  theme_minimal())
+#only biomass
+(spurdognumbfitbio <- ggplot() +
+    geom_density(data=sprat, aes(log(ppmr), weight=weight_biomass))+
+    geom_density(data=dplot2spur, aes(x, weight=density), color="blue", alpha=0.5)+
+  #geom_line(data=dplot, aes(x = x, y = density), color="red") +
+  labs(x = "Values", y = "Density") +
+  ggtitle("Diet Density Plot from Number Distribution")+
+  theme_minimal())
+
+spurdog <- gmm$parameters
+
+```
+
+
+## Compilation plot
+
+Some of the plots do not have the biomass and number densities plotted 
+together, as they overlap.
+
+```{r, warning=FALSE, fig.width=10, fig.height=6, echo = FALSE}
+library(patchwork)
+
+codplot + ggtitle("Cod") +
+  comdab + ggtitle("Com. dab") +
+  bluewhit + ggtitle("Bluewhit") +
+  hakenumbfit + ggtitle("Hake") +
+  hakenumbfitbio + ggtitle("Shifted Hake") +  
+  haddock + ggtitle("Haddock") +
+  horsemackerel + ggtitle("Horse Mackerel") +
+  mackerelplot + ggtitle("Mackerel") +
+  megrimnumbfit + ggtitle("Megrim") +
+  megrimnumbfitbio + ggtitle("Shifted Megrim") + 
+  monkbio + ggtitle("Monk") +
+  monknum + ggtitle("Shifted Monk") +
+  norwaypout + ggtitle("Norway Pout") +
+  plaicenumbfit + ggtitle("Plaice") +
+  plaicenumbfitbio + ggtitle("Shifted Plaice") + 
+  poorcod + ggtitle("Poor Cod") +
+  solenumbfit + ggtitle("Sole") +
+  solenumbfitbio + ggtitle("Shifted Sole") + 
+  spratnumbfit + ggtitle("Sprat") +
+  spratnumbfitbio + ggtitle("Shifted Sprat") +
+  spurdognumbfit + ggtitle("Spurdog") +
+  spurdognumbfitbio + ggtitle("Shifted Spurdog")
+
+``` 
+
+## Compiling the parameters
+
+I compiled the parameters manually into the list, but here is the outputs
+from the code here.
+
+```{r, include=FALSE, warning=FALSE}
+
+print("Cod Parameters")
+print(cod)
+print("Common DAb Parameters")
+print(commondab)
+print("Blue Whiting Parameters")
+print(bluewhiting)
+print("Hake Parameters")
+print(hake)
+print("Haddock Parameters")
+print(haddockco)
+print("Horse Mackerel Parameters")
+print(horsemackerelco)
+print("Mackerel Parameters")
+print(mackerel)
+print("Megrim Parameters")
+print(megrim)
+print("Monkfish Parameters")
+print(monk)
+print("Norway Pout Parameters")
+print(npout)
+print("Plaice Parameters")
+print(plaice)
+print("Poor Cod Parameters")
+print(poorcodco)
+print("Sole Parameters")
+print(sole)
+print("Sprat Parameters")
+print(spratpar)
+print("Spurdog Parameters")
+print(spurdog)
+
+```
+
+And here is the code that puts it into a list
+
+```{r}
+
+species_data <- list(
+  "blue whiting" = list(
+    fit = "ok",
+    parameters = c(alpha = -0.1310297, ll = 2.3405346, ul = 22.9956791, lr = 
+                     9.0047846, ur = 1.4277256)
+  ),
+  "whiting" = list(
+    fit = "not good",
+    parameters = c(alpha = -0.3145214, ll = 3.6304283, ul = 4.5452752, lr = 
+                     13.3696362, ur = 1.6451461)
+  ),
+  "cod" = list(
+    fit = "ok",
+    parameters = c(alpha = -0.0005523561, ll = 3.7634229256, ul = 2.2665059865, 
+                   lr = 11.7093958978, ur = 1.8644950972)
+  ),
+  "common dab" = list(
+    fit = "very good",
+    parameters = c(alpha = -0.05424663, ll = 3.39867067, ul = 2.29557044, lr = 
+                     9.44078251, ur = 1.66081495)
+  ),
+  "european hake" = list(
+    fit = "good",
+    parameters = list(
+      pro = c(0.6450399, 0.3549601),
+      mean = c(4.286325, 4.710199),
+      sigmasq = c(0.06341901, 2.44856948)
+    )
+  ),
+  "haddock" = list(
+    fit = "good",
+    parameters = c(alpha = 0.4805395, ll = 3.8865861, ul = 2.1827656, lr = 
+                     11.7890770, ur = 2.3939047)
+  ),
+  "herring" = list(
+    fit = "no fit",
+    parameters = NA
+  ),
+  "Horse Mackerel" = list(
+    fit = "good",
+    parameters = c(alpha = -0.2374178, ll = 3.5785207, ul = 1.9266416, lr = 
+                     13.1902886, ur = 3.3245700)
+  ),
+  "Mackerel" = list(
+    fit = "very good",
+    parameters = c(alpha = -0.2856444, ll = 3.7936324, ul = 2.0442341, lr = 
+                     16.1008630, ur = 2.7353730)
+  ),
+  "Megrim" = list(
+    fit = "ok",
+    parameters = list(
+      pro = c(0.5504123, 0.4495877),
+      mean = c(4.015029, 5.947145),
+      sigmasq = c(0.2139633, 2.8654756)
+    )
+  ),
+  "monkfish" = list(
+    fit = "not good",
+    parameters = c(alpha = 0.0700759, ll = 0.9805321, ul = 54.0317054, lr = 
+                     5.3291042, ur = 4.3538944)
+  ),
+  "norway pout" = list(
+    fit = "ok",
+    parameters = c(alpha = -0.6399368, ll = 4.0059442, ul = 1.7483370, lr = 
+                     11.8681193, ur = 13.6461300)
+  ),
+  "plaice" = list(
+    fit = "ok",
+    parameters = list(
+      pro = c(0.4013671, 0.5986329),
+      mean = c(5.650236, 7.762250),
+      sigmasq = c(0.1959833, 5.8912814)
+    )
+  ),
+  "poor cod" = list(
+    fit = "good",
+    parameters = c(alpha = 0.03769714, ll = 3.89995523, ul = 1.84539297, lr = 
+                     11.07162811, ur = 9.65116209)
+  ),
+  "sole" = list(
+    fit = "very good",
+    parameters = list(
+      pro = c(0.370072, 0.629928),
+      mean = c(5.256386, 8.947248),
+      sigmasq = c(0.820242, 2.179852)
+    )
+  ),
+  "Sprat" = list(
+    fit = "ok",
+    parameters = list(
+      pro = c(0.2307388, 0.4959397, 0.2733215),
+      mean = c(3.943746, 8.584915, 12.039642),
+      sigmasq = 0.7068256
+    )
+  ),
+  "spurdog" = list(
+    fit = "not good",
+    parameters = list(
+      pro = c(0.377416, 0.622584),
+      mean = c(3.787757, 6.772024),
+      sigmasq = c(0.1022199, 4.8450106)
+    )
+  )
+)
+
+```
