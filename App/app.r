@@ -4,12 +4,20 @@ library(ggplot2)
 library(dplyr)
 library(bslib)
 library(plotly)
-library(shinyuieditor)
+#library(shinyuieditor)
 library(ggplot2)
 library(gridlayout)
 library(thematic)
+#NO LOG SCALES
+#CUT OFF GUILDS BY MATURITY SIZE 
+#GET BIOMASS INSTEAD OF PLOTSPECTRA
+#tipping points not breakpoints
+#add yields on to fishing technique change + other plots
+#do percentage first then calculate mean !!!
 
 # Load the mizer model
+
+
 
 #setwd("C:/Users/lucab/Downloads")
 #celticsim <- readRDS("Celtic_16_untuned.rds")
@@ -84,54 +92,86 @@ library(thematic)
                                        t_max = input$year[2])
         harvested <- plotSpectra(harvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
 
+        
         harvested2 <- harvested
         unharvested2 <- unharvested
-
+        harvested3 <- harvested
+        unharvested3 <- unharvested
+        
         # This next function separates the size spectrum into bins
         #so that the effect of changing one species is observed on a community level
         create_log_bins <- function(data, column, bins = 10) {
-            # Calculate logarithmically spaced breaks
-            breaks <- exp(seq(log(min(data[[column]])), log(max(data[[column]])), length.out = bins + 1))
-
-            # Bin the data
-            data <- data %>%
-                mutate(log_bin = cut(data[[column]], breaks = breaks, include.lowest = TRUE))
-
-            # Calculate the average weight for each bin
-            bin_means <- data %>%
-                group_by(log_bin) %>%
-                summarise(avg_weight = mean(!!sym(column)))
-
-            # Map the average weights back to the original data
-            data <- data %>%
-                left_join(bin_means, by = "log_bin")
-
-            # Return the data with the new column
-            return(data)
+          # Calculate logarithmically spaced breaks
+          breaks <- exp(seq(log(min(data[[column]])), log(max(data[[column]])), length.out = bins + 1))
+          
+          # Bin the data
+          data <- data %>%
+            mutate(log_bin = cut(data[[column]], breaks = breaks, include.lowest = TRUE))%>%
+            group_by(log_bin)%>%
+            summarise(value =  mean(value)) %>%
+            mutate(
+              lower_bound = breaks[-length(breaks)][as.numeric(log_bin)],
+              upper_bound = breaks[-1][as.numeric(log_bin)]
+            )%>%
+            mutate(midpoint = (lower_bound + upper_bound) / 2)
+          
+          return(data)
         }
+        
+        #DO THE PERCENTAGE FIRST THEN CALCULATE MEAN!!!
+        
         # Run the function on the harvested and unharvested data
         binnedharvested <- create_log_bins(harvested, "w", bins = 10)
         binnedunharvested <- create_log_bins(unharvested, "w", bins = 10)
         # Average the values in each bin
-        binnedharvested <- binnedharvested %>%
-            group_by(avg_weight) %>%
-            summarise(value = mean(value))
-        binnedunharvested <- binnedunharvested %>%
-            group_by(avg_weight) %>%
-            summarise(value = mean(value))
+        #binnedharvested <- binnedharvested %>%
+        #  group_by(avg_weight) %>%
+        #  summarise(value = mean(value))
+        #binnedunharvested <- binnedunharvested %>%
+        #  group_by(avg_weight) %>%
+        #  summarise(value = mean(value))
         # Calculate the percentage change in each bin
         percentage_diffbinned <- binnedharvested %>%
-            left_join(binnedunharvested, by = "avg_weight") %>%
-            mutate(percentage_diff = (value.x / value.y) * 100) %>%
-            select(avg_weight, percentage_diff)
+          left_join(binnedunharvested, by = "log_bin") %>%
+          mutate(percentage_diff = ((value.x / value.y) * 100)-100)
         
-        percentage_diffbinned$percentage_diff <- percentage_diffbinned$percentage_diff - 100
-        # Plot the percentage change in each bin
-
-        sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight, labels = paste(1:11)),
+        #now i am calculating the community spectrum to plot.
+        harvested3 <- harvested3%>%group_by(w)%>%summarise(value = sum(value))
+        unharvested3 <- unharvested3%>%group_by(w)%>%summarise(value = sum(value))
+        percentage_spectrumdiff <- harvested3%>%left_join(unharvested3, by = "w")%>%
+          mutate(percentage_diff = ((value.x/value.y)*100)-100)%>%select(w, percentage_diff)
+        
+        sizelevel <- ggplot(percentage_diffbinned, aes(x = log(midpoint.y),
                                                        y = percentage_diff)) +
-            geom_bar(stat = "identity", fill="#2FA4E7") +
-            labs(title = "Percentage Change by Size", x = "Size: Smaller to Larger", y = "Percentage Change") +
+          geom_bar(stat = "identity", fill="#2FA4E7", 
+                   width=log(percentage_diffbinned$upper_bound.y[1]) - log(percentage_diffbinned$lower_bound.y[1])) +
+          geom_line(data=percentage_spectrumdiff, aes(x=(log(w)), 
+                                                      y=percentage_diff), color="red")+
+          labs(title = "Percentage Change by Size", x = "Size: Smaller to Larger", y = "Percentage Change") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
+                axis.text.y = element_text(size = 14),
+                legend.position = "none",
+                axis.title.x = element_text(size = 16),
+                axis.title.y = element_text(size = 16))
+        
+        sizelevel <- ggplot() +
+          geom_col(data = percentage_diffbinned, 
+                   aes(x = log(midpoint.y), y = percentage_diff), 
+                   fill = "#2FA4E7", width = log(percentage_diffbinned$upper_bound.y[1]) - log(percentage_diffbinned$lower_bound.y[1])) +
+          geom_line(data = percentage_spectrumdiff, 
+                    aes(x = log(w), y = percentage_diff), 
+                    color = "red")
+        
+        sizelevel <- ggplot() +
+          geom_rect(data = percentage_diffbinned, 
+                    aes(xmin = log(lower_bound.y), xmax = log(upper_bound.y), 
+                        ymin = 0, ymax = percentage_diff), 
+                    fill = "#2FA4E7") +
+          geom_line(data = percentage_spectrumdiff, 
+                    aes(x = log(w), y = percentage_diff), 
+                    color = "red") +
+          labs(title = "Percentage Change by Size", x = "Size", y = "Percentage Change") +
           theme_minimal() +
           theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
                 axis.text.y = element_text(size = 14),
@@ -363,7 +403,7 @@ pisco <- harvested2 %>%
         geom_line(data = percentage_spectrumdiff, 
                   aes(x = log(w), y = percentage_diff), 
                   color = "red") +
-        labs(title = "Percentage Change by Size", x = "Log(Size)", y = "Percentage Change") +
+        labs(title = "Percentage Change by Size", x = "Size", y = "Percentage Change") +
         theme_minimal() +
         theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
               axis.text.y = element_text(size = 14),
