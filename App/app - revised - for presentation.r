@@ -33,15 +33,15 @@ library(tidyverse)
         effort <- c(commercial = input$industrial, pelagic = input$pelagic, beam = input$beam, otter = input$otter)
         projection <- project(celticsim, effort = effort)
         list(
-            spectrum = plotSpectra(projection, time_range = input$year),
-            yield = plotYield(projection)
+            spectrum = plotlySpectra(projection, time_range = input$year),
+            yield = plotlyYield(projection)
         )
     })
   #this is just plotting the outputs of spectra
-    output$spectrumPlot <- renderPlot({
+    output$spectrumPlot <- renderPlotly({
         spectra()$spectrum
     })
-    output$yieldPlot <- renderPlot({
+    output$yieldPlot <- renderPlotly({
        spectra()$yield
     })
 
@@ -81,21 +81,21 @@ library(tidyverse)
         speciessim <- celticsim
         unharvestedprojection <- project(celticsim,
                                          effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
-                                         t_max = input$year[2])
+                                         t_max = input$year[2]*2)
         unharvested <- plotSpectra(unharvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
         unharvestedbio <- getBiomass(unharvestedprojection)
-        unharvestedbio[input$year[1]:input$year[2],]
-        unharvestedbio <- melt(apply(unharvestedbio, 2, mean, na.rm = TRUE))
+        unharvestedbio <- melt(unharvestedbio[input$year[1],])
+        #unharvestedbio <- melt(apply(unharvestedbio, 2, mean, na.rm = TRUE))
         unharvestedbio <- rownames_to_column(unharvestedbio, var = "Species")
         
         speciessim@initial_n[input$species_name_select, ] <- speciessim@initial_n[input$species_name_select, ] * input$species
         harvestedprojection <- project(speciessim,
                                        effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
-                                       t_max = input$year[2])
+                                       t_max = input$year[2]*2)
         harvested <- plotSpectra(harvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
         harvestedbio <- getBiomass(harvestedprojection)
-        harvestedbio <- harvestedbio[input$year[1]:input$year[2],]
-        harvestedbio <- melt(apply(harvestedbio, 2, mean, na.rm = TRUE))
+        harvestedbio <- melt(harvestedbio[input$year[1],])
+        #harvestedbio <- melt(apply(harvestedbio, 2, mean, na.rm = TRUE))
         harvestedbio <- rownames_to_column(harvestedbio, var = "Species")
         
         harvested2 <- harvested
@@ -123,16 +123,16 @@ library(tidyverse)
           return(data)
         }
         
-        harvested <- harvested%>%group_by(w)%>%
-          summarise(value=mean(value))
-        unharvested <- unharvested2%>%group_by(w)%>%
-          summarise(value=mean(value))
+        #arvested <- harvested%>%group_by(w)%>%
+         # summarise(value=mean(value))
+        #unharvested <- unharvested2%>%group_by(w)%>%
+         # summarise(value=mean(value))
         
-        percentagediff <- harvested%>%
-          left_join(unharvested, by = "w")%>%
-          mutate(percentage_diff = ((value.x / value.y ) * 100)-100)
+        #percentagediff <- harvested%>%
+          #left_join(unharvested, by = "w")%>%
+         #mutate(percentage_diff = ((value.x / value.y ) * 100)-100)
         
-        percentage_diffbinned <- create_log_bins(percentagediff, "w", bins=10)
+        #percentage_diffbinned <- create_log_bins(percentagediff, "w", bins=10)
         
         # Run the function on the harvested and unharvested data
         #innedharvested <- create_log_bins(harvested, "w", bins = 10)
@@ -150,21 +150,36 @@ library(tidyverse)
           #mutate(percentage_diff = ((value.x / value.y) * 100)-100)
         
         #now i am calculating the community spectrum to plot.
-        harvested3 <- harvested3%>%group_by(w)%>%summarise(value = sum(value))
-        unharvested3 <- unharvested3%>%group_by(w)%>%summarise(value = sum(value))
-        percentage_spectrumdiff <- harvested3%>%left_join(unharvested3, by = "w")%>%
-          mutate(percentage_diff = ((value.x/value.y)*100)-100)%>%select(w, percentage_diff)
         
+        plotSpectraRelative <- function(object1, object2) {
+          
+          sf1 <- mizer::plotSpectra(object1, return_data = TRUE, 
+                                    resource = FALSE, background = FALSE)
+          sf2 <- mizer::plotSpectra(object2, return_data = TRUE, 
+                                    resource = FALSE, background = FALSE)
+          
+          sf <- left_join(sf1, sf2, by = c("w", "Legend")) |>
+            group_by(w) |>
+            summarise(x = sum(value.x, na.rm = TRUE),
+                      y = sum(value.y, na.rm = TRUE)) |>
+            mutate(rel_diff = 2 * (y - x) / (x + y))
+             
+          return(sf)
+        }
         
+        sf <- plotSpectraRelative(harvestedprojection, unharvestedprojection)
+  
         sizelevel <- ggplot() +
-          geom_rect(data = percentage_diffbinned, 
-                    aes(xmin = log(lower_bound), xmax = log(upper_bound), 
-                        ymin = 0, ymax = value), 
-                    fill = "#2FA4E7") +
-          geom_line(data = percentage_spectrumdiff, 
-                    aes(x = log(w), y = percentage_diff), 
-                    color = "red") +
-          labs(title = "Percentage Change by Size", x = "Log(Size)", y = "Percentage Change") +
+          #geom_rect(data = percentage_diffbinned, 
+               ##     aes(xmin = log(lower_bound), xmax = log(upper_bound), 
+                #        ymin = 0, ymax = value), 
+                #    fill = "#2FA4E7") +
+          geom_line(data = sf, 
+                    aes(x = w, y = rel_diff*100), 
+                    color = "#2FA4E7") +
+          geom_hline(yintercept = 0, linetype = 1,
+                     colour = "dark grey", linewidth = 0.75)+
+          labs(title = "Percentage Change by Size", x = "Size (g)", y = "Percentage Change") +
           theme_minimal() +
           theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
                 axis.text.y = element_text(size = 14),
@@ -179,10 +194,47 @@ library(tidyverse)
             mutate(percentage_diff = (percentage_diff = ((value.x - value.y) / value.y) * 100)) %>%
             select(Species, percentage_diff)%>%
           filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+        percentage_diff$class <- "chosen"
         
-        specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff)) +
-            geom_bar(stat = "identity", fill="#2FA4E7") +
+        
+        #here i am plotting the species level change across years
+        #so harvested bio is the correct one, i need to calculate these years diff.
+        
+
+        unharvestedbiotriple <- getBiomass(unharvestedprojection)
+        lowunbiotrip <- melt(unharvestedbiotriple[round(input$year[1]*(1/3)),])
+        highunbiotrip <- melt(unharvestedbiotriple[input$year[1]*2,])
+        lowunbiotrip$Species <- rownames(lowunbiotrip)
+        highunbiotrip$Species <- rownames(highunbiotrip)
+        
+        
+        harvestedbiotriple <- getBiomass(harvestedprojection)
+        lowbiotrip <- melt(harvestedbiotriple[round(input$year[1]*(1/3)),])
+        highbiotrip <- melt(harvestedbiotriple[input$year[1]*2,])
+        lowbiotrip$Species <- rownames(lowbiotrip)
+        highbiotrip$Species <- rownames(highbiotrip)
+        
+        percentage_difflow <- lowbiotrip %>%
+          left_join(lowunbiotrip, by = "Species") %>%
+          mutate(percentage_diff = (percentage_diff = ((value.x - value.y) / value.y) * 100)) %>%
+          select(Species, percentage_diff)%>%
+          filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+        percentage_difflow$class <- "low"
+        
+        percentage_diffhigh <- highbiotrip %>%
+          left_join(highunbiotrip, by = "Species") %>%
+          mutate(percentage_diff = (percentage_diff = ((value.x - value.y) / value.y) * 100)) %>%
+          select(Species, percentage_diff)%>%
+          filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+        percentage_diffhigh$class <- "high"
+        
+        percentage_diff <- rbind(percentage_diff, percentage_difflow, percentage_diffhigh)
+        
+        
+        specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff, fill=factor(class))) +
+            geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
             labs(title = "Percentage Change by Species", x = "Species", y = "Percentage Change") +
+          scale_fill_manual(values =  c("#2FA4E7", "#2FA4E7cc", "#2FA4E799")) +
           theme_minimal() +
           theme(axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 0.5),
                 axis.text.y = element_text(size = 14),
@@ -283,18 +335,18 @@ pisco <- harvested2 %>%
         list(sizelevel = sizelevel, specieslevel = specieslevel, guildlevel = guildlevel)
     })
     #Plots of herring decrease
-    output$speciesPlot <- renderPlot({
+    output$speciesPlot <- renderPlotly({
         specieschange()$specieslevel
     })
-    output$sizePlot <- renderPlot({
+    output$sizePlot <- renderPlotly({
         specieschange()$sizelevel
     })
-    output$guildPlot <- renderPlot({
+    output$guildPlot <- renderPlotly({
         specieschange()$guildlevel
     })
     
     #fake radar plot
-    output$radar <- renderPlot({
+    output$radar <- renderPlotly({
       # Create the data
       data <- tibble(
         Category = c("Scenario 1", "Scenario 2"),
@@ -321,13 +373,14 @@ pisco <- harvested2 %>%
     #Plots of herring mortality decrease.
     mortspecieschange <- eventReactive(input$goButton3,{
       speciessim <- celticsim
+      
       unharvestedprojection <- project(celticsim,
                                        effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
-                                       t_max = input$year[2])
-      unharvested <- plotSpectra(unharvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
+                                       t_max = input$mortyear[2]*2)
+      unharvested <- plotSpectra(unharvestedprojection, time_range = input$mortyear[1]:input$mortyear[2], return_data = TRUE)
       unharvestedbio <- getBiomass(unharvestedprojection)
-      unharvestedbio <- unharvestedbio[input$year[1]:input$year[2],]
-      unharvestedbio <- melt(apply(unharvestedbio, 2, mean, na.rm = TRUE))
+      unharvestedbio <- melt(unharvestedbio[input$mortyear[1],])
+      #unharvestedbio <- melt(apply(unharvestedbio, 2, mean, na.rm = TRUE))
       unharvestedbio <- rownames_to_column(unharvestedbio, var = "Species")
       
       test <- getExtMort(speciessim)
@@ -336,15 +389,14 @@ pisco <- harvested2 %>%
       test[input$name_select,] <- test[input$name_select,]+(input$mortspecies*totalmort[input$name_select,])
       ext_mort(speciessim) <- test
       
-      speciessim@initial_n[input$species_name_select, ] <- speciessim@initial_n[input$species_name_select, ] * input$species
-      
       harvestedprojection <- project(speciessim,
                                      effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
-                                     t_max = input$year[2])
-      harvested <- plotSpectra(harvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
+                                     t_max = input$mortyear[2]*2)
+    
+      harvested <- plotSpectra(harvestedprojection, time_range = input$mortyear[1]:input$mortyear[2], return_data = TRUE)
       harvestedbio <- getBiomass(harvestedprojection)
-      harvestedbio <- harvestedbio[input$year[1]:input$year[2],]
-      harvestedbio <- melt(apply(harvestedbio, 2, mean, na.rm = TRUE))
+      harvestedbio <- melt(harvestedbio[input$mortyear[1],])
+      #harvestedbio <- melt(apply(harvestedbio, 2, mean, na.rm = TRUE))
       harvestedbio <- rownames_to_column(harvestedbio, var = "Species")
       
       harvested2 <- harvested
@@ -352,68 +404,37 @@ pisco <- harvested2 %>%
       harvested3 <- harvested
       unharvested3 <- unharvested
       
-      # This next function separates the size spectrum into bins
-      #so that the effect of changing one species is observed on a community level
-      create_log_bins <- function(data, column, bins = 10) {
-        # Calculate logarithmically spaced breaks
-        breaks <- exp(seq(log(min(data[[column]])), log(max(data[[column]])), length.out = bins + 1))
+      #now i am calculating the community spectrum to plot.
+      
+      plotSpectraRelative <- function(object1, object2) {
         
-        # Bin the data
-        data <- data %>%
-          mutate(log_bin = cut(data[[column]], breaks = breaks, include.lowest = TRUE))%>%
-          group_by(log_bin)%>%
-          summarise(value =  mean(percentage_diff)) %>%
-          mutate(
-            lower_bound = breaks[-length(breaks)][as.numeric(log_bin)],
-            upper_bound = breaks[-1][as.numeric(log_bin)]
-          )%>%
-          mutate(midpoint = (lower_bound + upper_bound) / 2)
+        sf1 <- mizer::plotSpectra(object1, return_data = TRUE, 
+                                  resource = FALSE, background = FALSE)
+        sf2 <- mizer::plotSpectra(object2, return_data = TRUE, 
+                                  resource = FALSE, background = FALSE)
         
-        return(data)
+        sf <- left_join(sf1, sf2, by = c("w", "Legend")) |>
+          group_by(w) |>
+          summarise(x = sum(value.x, na.rm = TRUE),
+                    y = sum(value.y, na.rm = TRUE)) |>
+          mutate(rel_diff = 2 * (y - x) / (x + y))
+        
+        return(sf)
       }
       
-      harvested <- harvested%>%group_by(w)%>%
-        summarise(value=mean(value))
-      unharvested <- unharvested2%>%group_by(w)%>%
-        summarise(value=mean(value))
-      
-      percentagediff <- harvested%>%
-        left_join(unharvested, by = "w")%>%
-        mutate(percentage_diff = ((value.x / value.y ) * 100)-100)
-      
-      percentage_diffbinned <- create_log_bins(percentagediff, "w", bins=10)
-      
-      # Run the function on the harvested and unharvested data
-      #innedharvested <- create_log_bins(harvested, "w", bins = 10)
-      #binnedunharvested <- create_log_bins(unharvested, "w", bins = 10)
-      # Average the values in each bin
-      #binnedharvested <- binnedharvested %>%
-      #  group_by(avg_weight) %>%
-      #  summarise(value = mean(value))
-      #binnedunharvested <- binnedunharvested %>%
-      #  group_by(avg_weight) %>%
-      #  summarise(value = mean(value))
-      # Calculate the percentage change in each bin
-      #percentage_diffbinned <- binnedharvested %>%
-      # left_join(binnedunharvested, by = "log_bin") %>%
-      #mutate(percentage_diff = ((value.x / value.y) * 100)-100)
-      
-      #now i am calculating the community spectrum to plot.
-      harvested3 <- harvested3%>%group_by(w)%>%summarise(value = sum(value))
-      unharvested3 <- unharvested3%>%group_by(w)%>%summarise(value = sum(value))
-      percentage_spectrumdiff <- harvested3%>%left_join(unharvested3, by = "w")%>%
-        mutate(percentage_diff = ((value.x/value.y)*100)-100)%>%select(w, percentage_diff)
-      
+      sf <- plotSpectraRelative(harvestedprojection, unharvestedprojection)
       
       sizelevel <- ggplot() +
-        geom_rect(data = percentage_diffbinned, 
-                  aes(xmin = log(lower_bound), xmax = log(upper_bound), 
-                      ymin = 0, ymax = value), 
-                  fill = "#2FA4E7") +
-        geom_line(data = percentage_spectrumdiff, 
-                  aes(x = log(w), y = percentage_diff), 
-                  color = "red") +
-        labs(title = "Percentage Change by Size", x = "Log(Size)", y = "Percentage Change") +
+        #geom_rect(data = percentage_diffbinned, 
+        ##     aes(xmin = log(lower_bound), xmax = log(upper_bound), 
+        #        ymin = 0, ymax = value), 
+        #    fill = "#2FA4E7") +
+        geom_line(data = sf, 
+                  aes(x = w, y = rel_diff*100), 
+                  color = "#2FA4E7") +
+        geom_hline(yintercept = 0, linetype = 1,
+                   colour = "dark grey", linewidth = 0.75)+
+        labs(title = "Percentage Change by Size", x = "Size (g)", y = "Percentage Change") +
         theme_minimal() +
         theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
               axis.text.y = element_text(size = 14),
@@ -428,10 +449,46 @@ pisco <- harvested2 %>%
         mutate(percentage_diff = (percentage_diff = ((value.x - value.y) / value.y) * 100)) %>%
         select(Species, percentage_diff)%>%
         filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+      percentage_diff$class <- "chosen"
       
-      specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff)) +
-        geom_bar(stat = "identity", fill="#2FA4E7") +
+      #here i am plotting the species level change across years
+      #so harvested bio is the correct one, i need to calculate these years diff.
+      
+      
+      unharvestedbiotriple <- getBiomass(unharvestedprojection)
+      lowunbiotrip <- melt(unharvestedbiotriple[round(input$mortyear[1]*(1/3)),])
+      highunbiotrip <- melt(unharvestedbiotriple[input$mortyear[1]*2,])
+      lowunbiotrip$Species <- rownames(lowunbiotrip)
+      highunbiotrip$Species <- rownames(highunbiotrip)
+      
+      harvestedbiotriple <- getBiomass(harvestedprojection)
+      lowbiotrip <- melt(harvestedbiotriple[round(input$mortyear[1]*(1/3)),])
+      highbiotrip <- melt(harvestedbiotriple[input$mortyear[1]*2,])
+      lowbiotrip$Species <- rownames(lowbiotrip)
+      highbiotrip$Species <- rownames(highbiotrip)
+
+      percentage_difflow <- lowbiotrip %>%
+        left_join(lowunbiotrip, by = "Species") %>%
+        mutate(percentage_diff = (percentage_diff = ((value.x - value.y) / value.y) * 100)) %>%
+        select(Species, percentage_diff)%>%
+        filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+      percentage_difflow$class <- "low"
+      
+      
+      percentage_diffhigh <- highbiotrip %>%
+        left_join(highunbiotrip, by = "Species") %>%
+        mutate(percentage_diff = (percentage_diff = ((value.x - value.y) / value.y) * 100)) %>%
+        select(Species, percentage_diff)%>%
+        filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+      percentage_diffhigh$class <- "high"
+      
+      percentage_diff <- rbind(percentage_diff, percentage_difflow, percentage_diffhigh)
+      
+      
+      specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff, fill=factor(class))) +
+        geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
         labs(title = "Percentage Change by Species", x = "Species", y = "Percentage Change") +
+        scale_fill_manual(values =  c("#2FA4E7", "#2FA4E7cc", "#2FA4E799")) +
         theme_minimal() +
         theme(axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 0.5),
               axis.text.y = element_text(size = 14),
@@ -535,13 +592,13 @@ pisco <- harvested2 %>%
       list(sizelevel = sizelevel, specieslevel = specieslevel, guildlevel = guildlevel)
     })
     #Plotting the outputs of the mortality decreases
-    output$mortspeciesPlot <- renderPlot({
+    output$mortspeciesPlot <- renderPlotly({
       mortspecieschange()$specieslevel
     })
-    output$mortsizePlot <- renderPlot({
+    output$mortsizePlot <- renderPlotly({
       mortspecieschange()$sizelevel
     })
-    output$mortguildPlot <- renderPlot({
+    output$mortguildPlot <- renderPlotly({
       mortspecieschange()$guildlevel
     })
     
@@ -590,7 +647,6 @@ pisco <- harvested2 %>%
       
       }
 
-      print(breaksim)
       return(breaksim)
       
     })
@@ -625,7 +681,6 @@ pisco <- harvested2 %>%
         mutate(normalized_value = ((value.x / value.y)-1)*100) %>%
         select(Species, normalized_value, sim) %>%
         filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
-      print(normalized_data)
       return(normalized_data)
       
     })
@@ -659,7 +714,7 @@ pisco <- harvested2 %>%
         local({
           my_i <- i
           plotname <- paste("plot", my_i, sep = "")
-          output[[plotname]] <- renderPlot({
+          output[[plotname]] <- renderPlotly({
             current_data <- data_list()[[my_i]]
             mort_value <- breakpoint$mort[my_i] * 100
             formatted_mort_value <- sprintf("+%.2f%%", mort_value)
@@ -675,7 +730,7 @@ pisco <- harvested2 %>%
       num_plots <- input$breaknumber
       plot_output_list <- lapply(1:num_plots, function(i) {
         plotname <- paste("plot", i, sep = "")
-        plotOutput(plotname, height = "300px")
+        plotlyOutput(plotname, height = "300px")
       })
       do.call(tagList, plot_output_list)
     })
@@ -704,7 +759,6 @@ pisco <- harvested2 %>%
           color = "Species"
         ) +
         theme_minimal()
-      plot(p)
     })
     
     
@@ -784,7 +838,7 @@ ui <- fluidPage(tags$head(
                 inputId = "species",
                 label = "Starting Biomass %:",
                 min = 0,
-                max = 1,
+                max = 2,
                 value = 1,
                 step = 0.01,
                 width = "100%"
@@ -818,10 +872,9 @@ ui <- fluidPage(tags$head(
             area = "area0",
             card_body(
               tabsetPanel(
-                tabPanel("Radar and Image", fluidRow(column(6, plotOutput("radar")), column(6, tags$img(src = "example indicators.png", height = "400px", width = "650px")))),
-                tabPanel(title = "Change in Species", plotOutput("speciesPlot")),
-                tabPanel(title = "Change in Size", plotOutput("sizePlot")),
-                tabPanel(title = "Guilds", plotOutput("guildPlot"))
+                tabPanel(title = "Change in Species", plotlyOutput("speciesPlot")),
+                tabPanel(title = "Change in Size", plotlyOutput("sizePlot")),
+                tabPanel(title = "Guilds", plotlyOutput("guildPlot"))
               )
             )
           )
@@ -850,7 +903,7 @@ ui <- fluidPage(tags$head(
               sliderInput(
                 inputId = "mortspecies",
                 label = "% Mortality Added",
-                min = 0,
+                min = -0.5,
                 max = 0.5,
                 value = 0,
                 step = 0.01,
@@ -885,9 +938,9 @@ ui <- fluidPage(tags$head(
             area = "area0",
             card_body(
               tabsetPanel(
-                tabPanel(title = "Change in Species", plotOutput("mortspeciesPlot")),
-                tabPanel(title = "Change in Size", plotOutput("mortsizePlot")),
-                tabPanel(title = "Guilds", plotOutput("mortguildPlot"))
+                tabPanel(title = "Change in Species", plotlyOutput("mortspeciesPlot")),
+                tabPanel(title = "Change in Size", plotlyOutput("mortsizePlot")),
+                tabPanel(title = "Guilds", plotlyOutput("mortguildPlot"))
               )
             )
           )
@@ -919,7 +972,7 @@ ui <- fluidPage(tags$head(
           sliderInput(
             inputId = "breakrange",
             label = "% Mortality Added",
-            min = 0,
+            min = -0.5,
             max = 0.5,
             value = c(0,0),
             step = 0.01,
@@ -1042,8 +1095,8 @@ ui <- fluidPage(tags$head(
         area = "area0",
         card_body(
           tabsetPanel(
-            tabPanel(title = "Yield", plotOutput("yieldPlot")),
-            tabPanel(title = "Spectra", plotOutput("spectrumPlot"))
+            tabPanel(title = "Yield", plotlyOutput("yieldPlot")),
+            tabPanel(title = "Spectra", plotlyOutput("spectrumPlot"))
           )
         )
       )
