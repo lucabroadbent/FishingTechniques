@@ -2,9 +2,12 @@ library(shiny)
 library(mizer)
 library(ggplot2)
 library(dplyr)
+library(bslib)
 library(plotly)
 library(shinyuieditor)
 library(ggplot2)
+library(gridlayout)
+library(thematic)
 # Load the mizer model
 
 setwd("C:/Users/lucab/Downloads")
@@ -21,13 +24,14 @@ ui <- fluidPage(
                     sliderInput("species", "Abundance Decreased by:", min = 0, max = 1, value = 1, step = 0.01),
                     sliderInput("year", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1),
                     selectInput("species_name_select", "Select a Species:", 
-                                choices = c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Herring", "Sprat", 
+                                choices = c("Herring", "Sprat", 
                                             "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
                                             "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
                                             "Plaice", "Megrim", "Sole")),
                     actionButton("set_year_5", "5 Years"),
                     actionButton("set_year_15", "15 Years"),
-                    actionButton("set_year_30", "30 Years")
+                    actionButton("set_year_30", "30 Years"),
+                    actionButton("goButton1", "Run Simulation")
                 ),
                 mainPanel(
                     tabsetPanel(
@@ -45,7 +49,8 @@ ui <- fluidPage(
                     sliderInput("industrial", "Commercial", min = 0, max = 1, value = 0.5, step = 0.1),
                     sliderInput("pelagic", "Pelagic", min = 0, max = 1, value = 0.5, step = 0.1),
                     sliderInput("beam", "Beam", min = 0, max = 1, value = 0.5, step = 0.1),
-                    sliderInput("otter", "Otter", min = 0, max = 1, value = 0.5, step = 0.1)
+                    sliderInput("otter", "Otter", min = 0, max = 1, value = 0.5, step = 0.1),
+                    actionButton("goButton2", "Run Simulation")
                 ),
                 mainPanel(
                     tabsetPanel(
@@ -60,11 +65,12 @@ ui <- fluidPage(
                 sidebarPanel(
                     sliderInput("mortspecies", "Mortality Imposed", min = 0, max = 0.5, value = 0, step = 0.01),
                     selectInput("name_select", "Select a Species:", 
-                                choices = c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Herring", "Sprat", 
+                                choices = c("Herring", "Sprat", 
                                             "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
                                             "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
                                             "Plaice", "Megrim", "Sole")),
-                    sliderInput("mortyear", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1)
+                    sliderInput("mortyear", "Time Range", min = 0, max = 100, value = c(1, 2), step = 1),
+                    actionButton("goButton3", "Run Simulation")
                 ),
                 mainPanel(
                     tabsetPanel(
@@ -82,10 +88,11 @@ ui <- fluidPage(
                          sliderInput("breakrange", "Range of Mortality", min = 0, max = 0.5, value = c(0,0), step = 0.01),
                          numericInput("breaknumber", "Number of Simulations", value=10),
                          selectInput("breakname_select", "Select a Species:", 
-                                     choices = c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Herring", "Sprat", 
+                                     choices = c("Herring", "Sprat", 
                                                  "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
                                                  "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
-                                                 "Plaice", "Megrim", "Sole"))
+                                                 "Plaice", "Megrim", "Sole")),
+                         actionButton("goButton", "Run Simulation")
                         
                      ),
                      mainPanel(
@@ -107,8 +114,10 @@ ui <- fluidPage(
 # Define the server
   server <- function(input, output, session) {
 
+    thematic::thematic_shiny()
+    
   #plots the spectra of the fishery model
-   spectra <- reactive({
+   spectra <- eventReactive(input$goButton2,{
         effort <- c(commercial = input$industrial, pelagic = input$pelagic, beam = input$beam, otter = input$otter)
         projection <- project(celticsim, effort = effort)
         list(
@@ -118,10 +127,10 @@ ui <- fluidPage(
     })
   #this is just plotting the outputs of spectra
     output$spectrumPlot <- renderPlot({
-        plot(spectra()$spectrum)
+        spectra()$spectrum
     })
     output$yieldPlot <- renderPlot({
-        plot(spectra()$yield)
+       spectra()$yield
     })
 
     
@@ -137,15 +146,15 @@ ui <- fluidPage(
     })
     
     #Decrease Herring Abundance 
-    specieschange <- reactive({
+    specieschange <- eventReactive(input$goButton1,{
         speciessim <- celticsim
         unharvestedprojection <- project(celticsim,
-                                         effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0),
+                                         effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
                                          t_max = input$year[2])
         unharvested <- plotSpectra(unharvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
         speciessim@initial_n[input$species_name_select, ] <- speciessim@initial_n[input$species_name_select, ] * input$species
         harvestedprojection <- project(speciessim,
-                                       effort = c(commercial = 0, pelagic = 0, beam = 0, otter = 0),
+                                       effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
                                        t_max = input$year[2])
         harvested <- plotSpectra(harvestedprojection, time_range = input$year[1]:input$year[2], return_data = TRUE)
 
@@ -189,14 +198,20 @@ ui <- fluidPage(
             left_join(binnedunharvested, by = "avg_weight") %>%
             mutate(percentage_diff = (value.x / value.y) * 100) %>%
             select(avg_weight, percentage_diff)
+        
         percentage_diffbinned$percentage_diff <- percentage_diffbinned$percentage_diff - 100
         # Plot the percentage change in each bin
 
-        sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight),
-                                                       y = percentage_diff, fill = factor(avg_weight))) +
+        sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight, labels = paste(1:11)),
+                                                       y = percentage_diff)) +
             geom_bar(stat = "identity") +
-            labs(title = "Average Percentage Change by Size", x = "Average Weight", y = "Percentage Change") +
-            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+            labs(title = "Average Percentage Change by Size", x = "Size: Smaller to Larger", y = "Percentage Change") +
+          theme_minimal() +
+          theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
+                axis.text.y = element_text(size = 14),
+                legend.position = "none",
+                axis.title.x = element_text(size = 16, face = "bold"),
+                axis.title.y = element_text(size = 16, face = "bold"))
 
         # Group by Species and calculate the average value of the value column for each species
         harvested <- harvested %>%
@@ -208,14 +223,19 @@ ui <- fluidPage(
         percentage_diff <- harvested %>%
             left_join(unharvested, by = "Species") %>%
             mutate(percentage_diff = (avg_value.x / avg_value.y) * 100) %>%
-            select(Species, percentage_diff)
+            select(Species, percentage_diff)%>%
+          filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
+        
         percentage_diff$percentage_diff <- percentage_diff$percentage_diff - 100
-        specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff, fill = Species)) +
+        specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff)) +
             geom_bar(stat = "identity") +
             labs(title = "Average Percentage Change by Species", x = "Species", y = "Percentage Change") +
-            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-
-        # This next section will be for the guilds, and the percentage change in each guild
+          theme_minimal() +
+          theme(axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 0.5),
+                axis.text.y = element_text(size = 14),
+                legend.position = "none",
+                axis.title.x = element_text(size = 16, face = "bold"),
+                axis.title.y = element_text(size = 16, face = "bold"))
 
         # Firstly, I need to extract the size spectrum for each guild
         plank <- harvested2 %>%
@@ -298,7 +318,13 @@ pisco <- harvested2 %>%
         guildlevel <- ggplot(percentage_diffguilds, aes(x = Guild, y = percentage_diff, fill = size_category)) + # nolint
             geom_bar(stat = "identity", position = "dodge") +
             labs(title = "Average Percentage Change by Guild", x = "Size Category", y = "Percentage Change") +
-            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+          theme_minimal() +
+          theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
+                axis.text.y = element_text(size = 14),
+                legend.position = "none",
+                axis.title.x = element_text(size = 16, face = "bold"),
+                axis.title.y = element_text(size = 16, face = "bold"))
+        
 
         list(sizelevel = sizelevel, specieslevel = specieslevel, guildlevel = guildlevel)
     })
@@ -314,7 +340,7 @@ pisco <- harvested2 %>%
     })
     
     #Plots of herring mortality decrease.
-    mortspecieschange <- reactive({
+    mortspecieschange <- eventReactive(input$goButton3,{
       speciessim <- celticsim
       unharvestedprojection <- project(celticsim,
                                        effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
@@ -327,7 +353,6 @@ pisco <- harvested2 %>%
       
       test[input$name_select,] <- test[input$name_select,]+(input$mortspecies*totalmort[input$name_select,])
       
-      #setExtMort(speciessim, test)
       ext_mort(speciessim) <- test
       
       harvestedprojection <- project(speciessim,
@@ -375,14 +400,21 @@ pisco <- harvested2 %>%
         left_join(binnedunharvested, by = "avg_weight") %>%
         mutate(percentage_diff = (value.x / value.y) * 100) %>%
         select(avg_weight, percentage_diff)
+      
       percentage_diffbinned$percentage_diff <- percentage_diffbinned$percentage_diff - 100
       # Plot the percentage change in each bin
       
-      sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight),
-                                                     y = percentage_diff, fill = factor(avg_weight))) +
+      sizelevel <- ggplot(percentage_diffbinned, aes(x = factor(avg_weight, labels = paste(1:10)),
+                                                     y = percentage_diff)) +
         geom_bar(stat = "identity") +
-        labs(title = "Average Percentage Change by Size", x = "Average Weight", y = "Percentage Change") +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+        labs(title = "Average Percentage Change by Size", x = "Size: Smaller to Larger", y = "Percentage Change") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(size = 14, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14),
+              legend.position = "none",
+              axis.title.x = element_text(size = 16, face = "bold"),
+              axis.title.y = element_text(size = 16, face = "bold"))
+      
       
       # Group by Species and calculate the average value of the value column for each species
       harvested <- harvested %>%
@@ -396,12 +428,19 @@ pisco <- harvested2 %>%
       percentage_diff <- harvested %>%
         inner_join(unharvested, by = "Species") %>%
         mutate(percentage_diff = ((avg_value.x / avg_value.y) * 100)-100) %>%
-        select(Species, percentage_diff)
+        select(Species, percentage_diff)%>%
+        filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
       
       specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff, fill = Species)) +
         geom_bar(stat = "identity") +
         labs(title = "Average Percentage Change by Species", x = "Species", y = "Percentage Change") +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+        theme_minimal() +
+        theme(axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14),
+              legend.position = "none",
+              axis.title.x = element_text(size = 16, face = "bold"),
+              axis.title.y = element_text(size = 16, face = "bold"))
+      
       
       # This next section will be for the guilds, and the percentage change in each guild
       
@@ -482,11 +521,17 @@ pisco <- harvested2 %>%
       percentage_diffguilds <- merged_df %>%
         mutate(percentage_diff = ((mean_value_guilds - mean_value_unguilds) / mean_value_unguilds) * 100)
       
-      # Plot the percentage change in each guild
-      guildlevel <- ggplot(percentage_diffguilds, aes(x = Guild, y = percentage_diff, fill = size_category)) +
+      # this has been changed from guildlevel <- 
+      guildlevel <- ggplot(percentage_diffguilds, aes(x = Guild, y = percentage_diff)) +
         geom_bar(stat = "identity", position = "dodge") +
-        labs(title = "Average Percentage Change by Guild", x = "Size Category", y = "Percentage Change") +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+        labs(title = "Percentage Change by Guild", x = "Size Category", y = "Percentage Change")+
+        theme_minimal() +
+        theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14),
+              legend.position = "none",
+              axis.title.x = element_text(size = 16, face = "bold"),
+              axis.title.y = element_text(size = 16, face = "bold"))
+      
       
       list(sizelevel = sizelevel, specieslevel = specieslevel, guildlevel = guildlevel)
     })
@@ -502,7 +547,7 @@ pisco <- harvested2 %>%
     })
     
     #Plotting breakpoints for the mortality increases
-    breaks <- reactive({
+    breaks <- eventReactive(input$goButton,{
       req(input$breakrange, input$breaknumber, input$breakyear)
       
       # Generate breakpoints
@@ -516,7 +561,7 @@ pisco <- harvested2 %>%
     })
 
     #Getting simulations from these mortality rates.
-    breaksim <- reactive({
+    breaksim <- eventReactive(input$goButton,{
       
       #read in the breaks data and make a empty dataframe
       breakpoints <- breaks()
@@ -551,7 +596,7 @@ pisco <- harvested2 %>%
     #I DONT KNOW WHAT DO DO HERE - WHICH TO COMPARE? IS IT STEADY STATE?
     #DOES IT MATTER IF WE JUST USE A RANDOM UNHARVESTED SIM
     #normalising to the unharvested
-    breaknorm <- reactive({
+    breaknorm <- eventReactive(input$goButton,{
       
       sims <- breaksim()
       breakpoints <- breaks()
@@ -573,7 +618,8 @@ pisco <- harvested2 %>%
       normalized_data <- sims %>%
         inner_join(unharvested, by = "Species")%>%
         mutate(normalized_value = ((mean_value.x / mean_value.y)-1)*100) %>%
-        select(Species, normalized_value, sim)
+        select(Species, normalized_value, sim) %>%
+        filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
       
       return(normalized_data)
     })
@@ -584,7 +630,13 @@ pisco <- harvested2 %>%
       ggplot(data, aes(x = Species, y = normalized_value, fill = Species)) +
         geom_bar(stat = "identity") +
         labs(title = plot_title, x = "Species", y = "Percentage Change") +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+        theme_minimal() +
+        theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
+              axis.text.y = element_text(size = 14),
+              legend.position = "none",
+              axis.title.x = element_text(size = 16, face = "bold"),
+              axis.title.y = element_text(size = 16, face = "bold"))
+      
     }
     
     #now a function to split the dataframe into a list
@@ -605,7 +657,7 @@ pisco <- harvested2 %>%
             current_data <- data_list()[[my_i]]
             mort_value <- breakpoint$mort[my_i] * 100
             formatted_mort_value <- sprintf("+%.2f%%", mort_value)
-            plot_title <- paste("Plot - Mortality", formatted_mort_value) 
+            plot_title <- paste("Mortality", formatted_mort_value) 
             create_species_level_plot(current_data, plot_title)
           })
         })
@@ -622,12 +674,360 @@ pisco <- harvested2 %>%
       do.call(tagList, plot_output_list)
     })
 
-    
+    bs_themer()
 
     
 }
 
 shinyApp(ui = ui, server = server)
+
+
+
+
+ui <- page_navbar(
+  title = "Celtic Sea Mizer Model",
+  selected = "Species",
+  collapsible = TRUE,
+  tags$style(HTML("
+    .btn-small{
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+  ")),
+  theme = bs_theme(bootswatch="cerulean"),
+  tags$style(HTML("
+    .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+      color: #ffffff;
+      background-color: #007bff;
+      border-color: #007bff #007bff #007bff;
+    }
+    .nav-tabs .nav-link {
+      color: #007bff;
+      border: 1px solid transparent;
+      border-top-left-radius: .25rem;
+      border-top-right-radius: .25rem;
+    }
+    .nav-tabs .nav-link:hover {
+      border-color: #e9ecef #e9ecef #ddd;
+      color: #0056b3;
+    }
+    .card {
+      margin-top: 100px; /* Increased margin to make it more noticeable */
+      border: 2px solid #007bff; /* Added border to highlight the card */
+      border-radius: .5rem; /* Increased border-radius for more visible rounding */
+    }
+.nav-tabs {
+  margin-bottom: 30px; /* Adjust this value as needed */
+}
+
+/* Alternatively, add padding to the top of the plots container */
+.plots-container {
+  padding-top: 30px; /* Adjust this value as needed */
+}
+
+  ")),
+  
+  # Species Tab with Biomass and Mortality Subtabs
+  tabPanel(
+    title = "Species",
+    tabsetPanel(
+      selected = "Biomass",
+      
+      # Biomass Tab
+      tabPanel(
+        title = "Biomass",
+        grid_container(
+          layout = c(
+            "area1 area0"
+          ),
+          row_sizes = c(
+            "1fr"
+          ),
+          col_sizes = c(
+            "0.3fr",
+            "1.7fr"
+          ),
+          gap_size = "10px",
+          
+          # Sidebar for Biomass
+          grid_card(
+            area = "area1",
+            card_body(
+              sliderInput(
+                inputId = "species",
+                label = "Abundance Decreased by:",
+                min = 0,
+                max = 1,
+                value = 1,
+                step = 0.01,
+                width = "100%"
+              ),
+              sliderInput(
+                inputId = "year",
+                label = "Time Range",
+                min = 0,
+                max = 100,
+                value = c(1, 2),
+                step = 1,
+                width = "100%"
+              ),
+              selectInput(
+                inputId = "species_name_select",
+                label = "Select a Species:",
+                choices = c("Herring", "Sprat", 
+                            "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
+                            "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
+                            "Plaice", "Megrim", "Sole")
+              ),
+              actionButton(inputId = "set_year_5", label = "5 Years", class = "btn-small"),
+              actionButton(inputId = "set_year_15", label = "15 Years", class = "btn-small"),
+              actionButton(inputId = "set_year_30", label = "30 Years", class = "btn-small"),
+              actionButton(inputId = "goButton1", label = "Run Simulation")
+            )
+          ),
+          
+          # Main Panel for Biomass
+          grid_card(
+            area = "area0",
+            card_body(
+              tabsetPanel(
+                tabPanel(title = "Change in Species", plotOutput("speciesPlot")),
+                tabPanel(title = "Change in Size", plotOutput("sizePlot")),
+                tabPanel(title = "Guilds", plotOutput("guildPlot"))
+              )
+            )
+          )
+        )
+      ),
+      
+      # Mortality Tab
+      tabPanel(
+        title = "Mortality",
+        grid_container(
+          layout = c(
+            "area1 area0"
+          ),
+          row_sizes = c(
+            "1fr"
+          ),
+          col_sizes = c(
+            "0.3fr",
+            "1.7fr"
+          ),
+          gap_size = "10px",
+          
+          # Sidebar for Mortality
+          grid_card(
+            area = "area1",
+            card_body(
+              sliderInput(
+                inputId = "mortspecies",
+                label = "Mortality Imposed",
+                min = 0,
+                max = 0.5,
+                value = 0,
+                step = 0.01,
+                width = "100%"
+              ),
+              selectInput(
+                inputId = "name_select",
+                label = "Select a Species:",
+                choices = c("Herring", "Sprat", 
+                            "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
+                            "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
+                            "Plaice", "Megrim", "Sole")
+              ),
+              sliderInput(
+                inputId = "mortyear",
+                label = "Time Range",
+                min = 0,
+                max = 100,
+                value = c(1, 2),
+                step = 1,
+                width = "100%"
+              ),
+              actionButton(inputId = "goButton3", label = "Run Simulation", class = "btn-small")
+            )
+          ),
+          
+          # Main Panel for Mortality
+          grid_card(
+            area = "area0",
+            card_body(
+              tabsetPanel(
+                tabPanel(title = "Change in Species", plotOutput("mortspeciesPlot")),
+                tabPanel(title = "Change in Size", plotOutput("mortsizePlot")),
+                tabPanel(title = "Guilds", plotOutput("mortguildPlot"))
+              )
+            )
+          )
+        )
+      )
+    )
+  ),
+  
+  # Breakpoint Tab
+  tabPanel(
+    title = "Breakpoint",
+    grid_container(
+      layout = c(
+        "area1 area0"
+      ),
+      row_sizes = c(
+        "1fr"
+      ),
+      col_sizes = c(
+        "0.3fr",
+        "1.7fr"
+      ),
+      gap_size = "10px",
+      
+      # Sidebar for Breakpoint
+      grid_card(
+        area = "area1",
+        card_body(
+          sliderInput(
+            inputId = "breakyear",
+            label = "Year to Analyse",
+            min = 0,
+            max = 100,
+            value = 1,
+            step = 1,
+            width = "100%"
+          ),
+          sliderInput(
+            inputId = "breakrange",
+            label = "Range of Mortality",
+            min = 0,
+            max = 0.5,
+            value = c(0,0),
+            step = 0.01,
+            width = "100%"
+          ),
+          numericInput(
+            inputId = "breaknumber",
+            label = "Number of Simulations",
+            value = 10
+          ),
+          selectInput(
+            inputId = "breakname_select",
+            label = "Select a Species:",
+            choices = c("Herring", "Sprat", 
+                        "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
+                        "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
+                        "Plaice", "Megrim", "Sole")
+          ),
+          actionButton(inputId = "goButton", label = "Run Simulation", class = "btn-small")
+        )
+      ),
+      
+      # Main Panel for Breakpoint
+      grid_card(
+        area = "area0",
+        card_body(
+          tabsetPanel(
+            tabPanel(title = "Change in Species", plotOutput("breakspeciesPlot")),
+            tabPanel(title = "Breaks", uiOutput("plots_breaks"))
+          )
+        )
+      )
+    )
+  ),
+  
+  # Fishery Strategy Tab
+  tabPanel(
+    title = "Fishery Strategy",
+    grid_container(
+      layout = c(
+        "area1 area0"
+      ),
+      row_sizes = c(
+        "1fr"
+      ),
+      col_sizes = c(
+        "0.3fr",
+        "1.7fr"
+      ),
+      gap_size = "10px",
+      
+      # Sidebar for Fishery Strategy
+      grid_card(
+        area = "area1",
+        card_body(
+          sliderInput(
+            inputId = "year",
+            label = "Time Range",
+            min = 0,
+            max = 100,
+            value = c(1, 2),
+            step = 1,
+            width = "100%"
+          ),
+          sliderInput(
+            inputId = "industrial",
+            label = "Commercial",
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.1,
+            width = "100%"
+          ),
+          sliderInput(
+            inputId = "pelagic",
+            label = "Pelagic",
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.1,
+            width = "100%"
+          ),
+          sliderInput(
+            inputId = "beam",
+            label = "Beam",
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.1,
+            width = "100%"
+          ),
+          sliderInput(
+            inputId = "otter",
+            label = "Otter",
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.1,
+            width = "100%"
+          ),
+          actionButton(inputId = "goButton2", label = "Run Simulation")
+        )
+      ),
+      
+      # Main Panel for Fishery Strategy
+      grid_card(
+        area = "area0",
+        card_body(
+          tabsetPanel(
+            tabPanel(title = "Yield", plotOutput("yieldPlot")),
+            tabPanel(title = "Spectra", plotOutput("spectrumPlot"))
+          )
+        )
+      )
+    )
+  )
+)
+  shinyApp(ui = ui, server = server)
+
+
+
+
+
+
+
+
+
+
 
 
 #so nothing is changing, but the herring is decreasing why?
@@ -712,7 +1112,9 @@ breaknorm <- function() {
   normalized_data <- sims_grouped %>%
     inner_join(unharvested_grouped, by = "Species") %>%
   mutate(normalized_value = (mean_value.x / mean_value.y)-1) %>%
-    select(Species, normalized_value, sim)
+    select(Species, normalized_value, sim)%>%
+    filter(!Species %in% c("8","6", "4", "20", "2", "19",
+                           "18", "17", "16"))
   
   return(normalized_data)
 }
@@ -789,7 +1191,13 @@ run_simulation <- function(celticsim, mortspecies = 0.0, mortyear = c(10, 10)) {
   specieslevel <- ggplot(percentage_diff, aes(x = Species, y = percentage_diff, fill = Species)) +
     geom_bar(stat = "identity") +
     labs(title = "Average Percentage Change by Species", x = "Species", y = "Percentage Change") +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+    theme_minimal() +
+    theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
+          axis.text.y = element_text(size = 14),
+          legend.position = "none",
+          axis.title.x = element_text(size = 16, face = "bold"),
+          axis.title.y = element_text(size = 16, face = "bold"))
+  
   
   # Return the plot
   return(specieslevel)
@@ -798,3 +1206,24 @@ run_simulation <- function(celticsim, mortspecies = 0.0, mortyear = c(10, 10)) {
 # Run the function and store the plot
 
 (specieslevel_plot <- run_simulation(celticsim))
+
+
+percentage_diffguilds <- data.frame(
+  Guild = c("Guild1", "Guild1", "Guild1", "Guild1", "Guild2", "Guild2", "Guild2", "Guild2",
+            "Guild3", "Guild3", "Guild3", "Guild3", "Guild4", "Guild4", "Guild4", "Guild4"),
+  percentage_diff = c(7.02, -39.80, 10.54, -12.34, 48.84, -30.12, 20.32, -5.43,
+                      -10.23, 35.56, -7.89, 23.45, -6.14, -29.11, 15.67, 22.18),
+  size_category = c("Medium", "Large", "Small", "Medium", "Small", "Medium", "Large", "Small",
+                    "Medium", "Small", "Large", "Medium", "Small", "Medium", "Large", "Small")
+)
+
+# Plot
+ggplot(percentage_diffguilds, aes(x = Guild, y = percentage_diff, fill = size_category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Percentage Change by Guild", x = "Size Category", y = "Percentage Change") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 14, angle = 90, hjust = 1, vjust = 0.5),
+        axis.text.y = element_text(size = 14),
+        legend.position = "none",
+        axis.title.x = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 16, face = "bold"))

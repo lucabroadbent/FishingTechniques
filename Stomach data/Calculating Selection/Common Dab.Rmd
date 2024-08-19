@@ -10,8 +10,8 @@ date: "2024-07-17"
 library(dplyr)
 library(ggplot2)
 library(bbmle)
-load("C:/Users/lucab/Downloads/stomach_dataset.Rdata") 
-
+setwd("C:/Users/lucab/OneDrive/Desktop/FishingTechniques")
+load("stomach_dataset.Rdata") 
 sprat <- stom_df%>%filter(pred_taxa=="Limanda limanda")
 
 ```
@@ -331,5 +331,18 @@ When fitted to number and shifted to biomass, it is good.
 ```{r}
 
 print(numberestco)
+
+```
+
+investigation of feeding ecology.
+
+```{r}
+
+stomach <- stomach %>%
+  mutate(group = ifelse(ppmr > 7, "dabup", "dabdown"))
+
+ggplot(stomach)+
+  geom_histogram(aes(x=ices_rectangle, y = ..density..))+
+  facet_wrap(~group)
 
 ```
