@@ -1,0 +1,17 @@
+Common_Name	Scientific_Name
+Herring	Clupea harengus
+Sprat	Sprattus sprattus
+Cod	Gadus morhua
+Haddock	Melanogrammus aeglefinus
+Whiting	Merlangius merlangus
+Blue Whiting	Micromesistius poutassou
+Norway Pout	Trisopterus esmarkii
+Poor Cod	Trisopterus minutus
+European Hake	Merluccius merluccius
+Monkfish	Lophius piscatorius
+Horse Mackerel	Trachurus trachurus
+Mackerel	Scomber scombrus
+Common Dab	Limanda limanda
+Plaice	Pleuronectes platessa
+Megrim	Lepidorhombus boscii
+Sole	Solea solea
