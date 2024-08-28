@@ -4,7 +4,6 @@ library(ggplot2)
 library(dplyr)
 library(bslib)
 library(plotly)
-library(shinyuieditor)
 library(ggplot2)
 library(gridlayout)
 library(thematic)
@@ -121,7 +120,7 @@ library(tidyverse)
         summarise(x = sum(value.x, na.rm = TRUE),
                   y = sum(value.y, na.rm = TRUE)) |>
         mutate(rel_diff = 2 * (y - x) / (x + y))
-      
+        
       sf <- ggplot() +
         geom_line(data = sf, 
                   aes(x = w, y = rel_diff * 100), 
