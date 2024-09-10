@@ -206,10 +206,37 @@ server <- function(input, output, session) {
         )
       }
     } else if (input$bigtabpanel == "Fishery Strategy") {
-      # Add Fishery Strategy steps here
+      
+      intro_steps <- list(
+        list(element = "#breakspecies", title = "Biomass Slider", 
+             intro = "The biomass slider here works in the same way as the biomass
+                 slider in the Single Species section of the app. The only difference is now
+                 you choose a range of biomass values to investigate."
+        ),
+        list(element = "#breakyear", title = "Year", 
+             intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
+        ),
+        list(element = "#breaknumber_species", title = "Break Number", 
+             intro = "The number chosen here is the amount of simulations that you want to run
+                 between the range of biomass values chosen on the slider. Each value of changed biomass
+                 is equidistant to others."),
+        list(element = "#breakplotting .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
+             intro = "This is the first plot that you will see. It is the same as the species plots
+               found in the Single Species section of the app, except that there is one plot for each
+               simulation that you have ran, and these plots are placed on top of each other, so that it
+               is possible to scroll down and observe the change."
+        ),
+        list(element = "#breakplotting .nav-link[data-value='Line Graph']", title = "Line Breaks", 
+             intro = "The next plot is of the same information, but plotted in a different format.
+               This time, the X axis is the % change in starting biomass of the given species, and the Y
+               axis details the % percentage change in each species in comparison to the current fishing scenario.
+               As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
+               like to remove on the figure legend."
+        )
+      )
+      
     }
-    
-    # Apply introjs with the steps
+
     if (length(intro_steps) > 0) {
       introjs(session, options = list(steps = intro_steps))
     }
