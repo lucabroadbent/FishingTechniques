@@ -23,199 +23,199 @@ library(rintrojs)
 
 server <- function(input, output, session) {
   
-
+  
+  
   observeEvent(input$start_tutorial, {
-    req(input$bigtabpanel)  # Ensure bigtabpanel is not NULL
-    req(input$mortnsp_tab)  # Ensure mortnsp_tab is not NULL
-    req(input$breakpoint_tabpanel)  # Ensure breakpoint_tabpanel is not NULL
-    
-    intro_steps <- list()  # Initialize an empty list for steps
-    
-    if (input$bigtabpanel == "Single Species") {
-      if (input$mortnsp_tab == "Biomass") {
-        intro_steps <- list(
-          list(element = "#species_slider", title = "Biomass Slider", 
-               intro = "This slider will change the starting biomass of the 
+    print(paste("bigtabpanel:", input$bigtabpanel))
+    print(paste("mortnsp_tab:", input$mortnsp_tab))
+    print(paste("breakpoint_tabpanel:", input$breakpoint_tabpanel))
+    introjs(session, options = list(
+      steps = if (input$bigtabpanel == "Single Species") {
+        if (input$mortnsp_tab == "Biomass") {
+          list(
+            list(element = "#species_slider", title = "Biomass Slider", 
+                 intro = "This slider will change the starting biomass of the 
                  species in the model. Changing the starting biomass intends to
                  show the role of different species within the ecosystem, 
                  as the knock on effect of a biomass change should be in seen 
                  in the plots. Hover over the information button to learn more."),
-          list(element = "#yearspecies_slider", title = "Time Range Slider", 
-               intro = "Changing the value of this slider will change the 
+            list(element = "#yearspecies_slider", title = "Time Range Slider", 
+                 intro = "Changing the value of this slider will change the 
                  year that is plotted. It is useful to look at different time scales, 
                  as the impact of the imposed change may differ and it will show the 
                  oscillatory change in fish populations. The buttons below 
                  will set the year to 5, 15, or 30 years, which can be thought of 
                  as short, medium, and long term."),
-          list(element = "#species_chose", title = "Species Selector", 
-               intro = "Here is where you choose the species you want to investigate. 
+            list(element = "#species_chose", title = "Species Selector", 
+                 intro = "Here is where you choose the species you want to investigate. 
                  It is possible to change all the species within the model."),
-          list(element = "#goButton1", title = "Run Simulation", 
-               intro = "Once you have chosen your settings in this configuration panel, 
+            list(element = "#goButton1", title = "Run Simulation", 
+                 intro = "Once you have chosen your settings in this configuration panel, 
                  press this button to run the simulation. It will take about 15 seconds.
                  "),
-          list(element = "#select_species", title = "Species Order", 
-               intro = "As some of the graphs show changes in each of the species within the model, 
+            list(element = "#select_species", title = "Species Order", 
+                 intro = "As some of the graphs show changes in each of the species within the model, 
             the order that these species are presented may allow for easier observation of 
             any general patterns. Hover over the information button to learn more."),
-          list(element = "#plotTabs .nav-link[data-value='Species']", 
-               intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
+            list(element = "#plotTabs .nav-link[data-value='Species']", 
+                 intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
       except without the change in the species you have decided to change. Each species has 3 bars, which indicate the species percentage change on 
       across a shorter timescale (a half of the chosen time), the chosen timescale and a longer timescale (double the chosen time)... 
       " ),
-          list(element = "#plotTabs .nav-link[data-value='Species']", 
-               intro = "Plotting all 3 timescales
+            list(element = "#plotTabs .nav-link[data-value='Species']", 
+                 intro = "Plotting all 3 timescales
       aids in understanding the oscillatory nature of fish populations, but also gives a greater resolution of the effect of the imposed change.
       It is possible to change the order of the species on the X axis by using the options in the configuration panel. 
       " ),
-          list(element = "#plotTabs .nav-link[data-value='Size']", 
-               intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
+            list(element = "#plotTabs .nav-link[data-value='Size']", 
+                 intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
       the viewer of the change in community composition, more specifically, how the distribution of fish size has changed."
-          ),
-          list(element = "#plotTabs .nav-link[data-value='Guilds']", 
-               intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
+            ),
+            list(element = "#plotTabs .nav-link[data-value='Guilds']", 
+                 intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
        feeding pattern in relation to other fish. Observing this plot helps to understand how the trophic dynamics of the ecosystem are changing.
       Additionally, the guilds are plotted as 3 bars of a short, chosen and long timescale."
-          ),
-          list(element = "#plotTabs .nav-link[data-value='Diet']", 
-               intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
+            ),
+            list(element = "#plotTabs .nav-link[data-value='Diet']", 
+                 intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
       in proportion of a given species (on the Y axis) in another species diet (on the X axis). Similar to the guild plot, this plot attempts to highlight the 
       trophic dynamics of the ecosystem and provides information as to why changes in species populations or the size spectrum may
       have occured."
+            )
           )
-        )
-      } else if (input$mortnsp_tab == "Mortality") {
-        intro_steps <- list(
-          list(element = "#mort_slider", title = "Mortality Slider", 
-               intro = "The Mortality slider changes the mortality rate of a given species, 
+        } else if (input$mortnsp_tab == "Mortality") {
+          # Fill in Mortality tutorial steps here
+          list(
+            list(element = "#mort_slider", title = "Mortality Slider", 
+                 intro = "The Mortality slider changes the mortality rate of a given species, 
                  across their entire size range. In mizer, species are separated into
       size bins, each with their own mortality rate. Each size bin can be thought of a 
       size of the species, so the small/medium/large individuals of the species.
       The value on this slider is multiplied by the rate of mortality that each size bin 
       has, then this new value is added on to the original mortality... 
       "
-          ),
-          list(element = "#mort_slider", title = "Mortality Slider", 
-               intro = "
+            ),
+            list(element = "#mort_slider", title = "Mortality Slider", 
+                 intro = "
       Therefore, a value of 1.05 on the slider will increase the mortality of the species 
       by %5, similarly a value of 0.95 will decrease the mortality by
       5%. This change is imposed on a relative across all sizes of the given species, as smaller individuals of any fish
       species will have a higher mortality rate than larger individuals."
-          ),
-          list(element = "#yearspecies_slider_mort", title = "Time Range Slider", 
-               intro = "Changing the value of this slider will change the 
+            ),
+            list(element = "#yearspecies_slider_mort", title = "Time Range Slider", 
+                 intro = "Changing the value of this slider will change the 
                  year that is plotted. It is useful to look at different time scales, 
                  as the impact of the imposed change may differ and it will show the 
                  oscillatory change in fish populations. The buttons below 
                  will set the year to 5, 15, or 30 years, which can be thought of 
                  as short, medium, and long term."),
-          list(element = "#species_choose_mort", title = "Species Selector", 
-               intro = "Here is where you choose the species you want to investigate. 
+            list(element = "#species_choose_mort", title = "Species Selector", 
+                 intro = "Here is where you choose the species you want to investigate. 
                  It is possible to change all the species within the model."),
-          list(element = "#goButton3", title = "Run Simulation", 
-               intro = "Once you have chosen your settings in this configuration panel, 
+            list(element = "#goButton3", title = "Run Simulation", 
+                 intro = "Once you have chosen your settings in this configuration panel, 
                  press this button to run the simulation. It will take about 15 seconds.
                  "),
-          list(element = "#select_species_mort", title = "Species Order", 
-               intro = "As some of the graphs show changes in each of the species within the model, 
+            list(element = "#select_species_mort", title = "Species Order", 
+                 intro = "As some of the graphs show changes in each of the species within the model, 
             the order that these species are presented may allow for easier observation of 
             any general patterns. Hover over the information button to learn more."),
-          list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
-               intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
+            list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
+                 intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
       except without the change in the species you have decided to change. Each species has 3 bars, which indicate the species percentage change on 
       across a shorter timescale (a half of the chosen time), the chosen timescale and a longer timescale (double the chosen time)... 
       " ),
-          list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
-               intro = "Plotting all 3 timescales
+            list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
+                 intro = "Plotting all 3 timescales
       aids in understanding the oscillatory nature of fish populations, but also gives a greater resolution of the effect of the imposed change.
       It is possible to change the order of the species on the X axis by using the options in the configuration panel. 
       " ),
-          list(element = "#plotTabs_mort .nav-link[data-value='Size']", 
-               intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
+            list(element = "#plotTabs_mort .nav-link[data-value='Size']", 
+                 intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
       the viewer of the change in community composition, more specifically, how the distribution of fish size has changed."
-          ),
-          list(element = "#plotTabs_mort .nav-link[data-value='Guilds']", 
-               intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
+            ),
+            list(element = "#plotTabs_mort .nav-link[data-value='Guilds']", 
+                 intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
        feeding pattern in relation to other fish. Observing this plot helps to understand how the trophic dynamics of the ecosystem are changing.
       Additionally, the guilds are plotted as 3 bars of a short, chosen and long timescale."
-          ),
-          list(element = "#plotTabs_mort .nav-link[data-value='Diet']", 
-               intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
+            ),
+            list(element = "#plotTabs_mort .nav-link[data-value='Diet']", 
+                 intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
       in proportion of a given species (on the Y axis) in another species diet (on the X axis). Similar to the guild plot, this plot attempts to highlight the 
       trophic dynamics of the ecosystem and provides information as to why changes in species populations or the size spectrum may
       have occured."
+            )
           )
-        )
-      }
-    } else if (input$bigtabpanel == "Breakpoint") {
-      if (input$breakpoint_tabpanel == "Mortality") {
-        intro_steps <-  list(
-          list(element = "#breakmort", title = "Mortality Slider", 
-               intro = "The mortality slider here works in the same way as the mortality
-                 slider in the Single Species section of the app. The only difference is now
-                 you choose a range of mortality values to investigate."
-          ),
-          list(element = "#breakyear_mort", title = "Year", 
-               intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
-          ),
-          list(element = "#breaknumber", title = "Break Number", 
-               intro = "The number chosen here is the amount of simulations that you want to run
-                 between the range of mortality values chosen on the slider. Each value of changed mortality 
-                 is equidistant to others."),
-          list(element = "#breakplotting_mort .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
-               intro = "This is the first plot that you will see. It is the same as the species plots
-               found in the Single Species section of the app, except that there is one plot for each
-               simulation that you have ran, and these plots are placed on top of each other, so that it
-               is possible to scroll down and observe the change."
-          ),
-          list(element = "#breakplotting_mort .nav-link[data-value='Line Graph']", title = "Line Breaks", 
-               intro = "The next plot is of the same information, but plotted in a different format.
-               This time, the X axis is the % change in mortality of the given species, and the Y
-               axis details the % percentage change in each species in comparison to the current fishing scenario.
-               As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
-               like to remove on the figure legend."
-          )
-        )
-      } else if (input$breakpoint_tabpanel == "Biomass") {
-        intro_steps <- list(
-          list(element = "#breakspecies", title = "Biomass Slider", 
-               intro = "The biomass slider here works in the same way as the biomass
+        }
+      } else if (input$bigtabpanel == "Breakpoint") {
+        if (input$breakpoint_tabpanel == "Mortality") {
+          
+          list(
+            list(element = "#breakmort", title = "Biomass Slider", 
+                 intro = "The biomass slider here works in the same way as the biomass
                  slider in the Single Species section of the app. The only difference is now
                  you choose a range of biomass values to investigate."
-          ),
-          list(element = "#breakyear", title = "Year", 
-               intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
-          ),
-          list(element = "#breaknumber_species", title = "Break Number", 
-               intro = "The number chosen here is the amount of simulations that you want to run
+            ),
+            list(element = "#breakyear_mort", title = "Year", 
+                 intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
+            ),
+            list(element = "#breaknumber_species", title = "Break Number", 
+                 intro = "The number chosen here is the amount of simulations that you want to run
                  between the range of biomass values chosen on the slider. Each value of changed biomass
                  is equidistant to others."),
-          list(element = "#breakplotting .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
-               intro = "This is the first plot that you will see. It is the same as the species plots
+            list(element = "#breakplotting_mort .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
+                 intro = "This is the first plot that you will see. It is the same as the species plots
                found in the Single Species section of the app, except that there is one plot for each
                simulation that you have ran, and these plots are placed on top of each other, so that it
                is possible to scroll down and observe the change."
-          ),
-          list(element = "#breakplotting .nav-link[data-value='Line Graph']", title = "Line Breaks", 
-               intro = "The next plot is of the same information, but plotted in a different format.
+            ),
+            list(element = "#breakplotting_mort .nav-link[data-value=''Line Graph']", title = "Line Breaks", 
+                 intro = "The next plot is of the same information, but plotted in a different format.
                This time, the X axis is the % change in starting biomass of the given species, and the Y
                axis details the % percentage change in each species in comparison to the current fishing scenario.
                As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
                like to remove on the figure legend."
+            )
           )
+        } else if (input$breakpoint_tabpanel == "Biomass") {
+          
+          list(
+            list(element = "#breakspecies", title = "Mortality Slider", 
+                 intro = "The mortality slider here works in the same way as the mortality
+                 slider in the Single Species section of the app. The only difference is now
+                 you choose a range of mortality values to investigate."
+            ),
+            list(element = "#breakyear", title = "Year", 
+                 intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
+            ),
+            list(element = "#breaknumber", title = "Break Number", 
+                 intro = "The number chosen here is the amount of simulations that you want to run
+                 between the range of mortality values chosen on the slider. Each value of changed mortality 
+                 is equidistant to others."),
+            list(element = "#breakplotting .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
+                 intro = "This is the first plot that you will see. It is the same as the species plots
+               found in the Single Species section of the app, except that there is one plot for each
+               simulation that you have ran, and these plots are placed on top of each other, so that it
+               is possible to scroll down and observe the change."
+            ),
+            list(element = "#breakplotting .nav-link[data-value=''Line Graph']", title = "Line Breaks", 
+                 intro = "The next plot is of the same information, but plotted in a different format.
+               This time, the X axis is the % change in mortality of the given species, and the Y
+               axis details the % percentage change in each species in comparison to the current fishing scenario.
+               As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
+               like to remove on the figure legend."
+            )
+          )
+        }
+      } else if (input$bigtabpanel == "Fishery Strategy") {
+        
+        list(
+          # Example: list(element = "#element_id", title = "Title", intro = "Description.")
         )
-      }
-    } else if (input$bigtabpanel == "Fishery Strategy") {
-      # Add Fishery Strategy steps here
-    }
-    
-    # Apply introjs with the steps
-    if (length(intro_steps) > 0) {
-      introjs(session, options = list(steps = intro_steps))
-    }
+      } 
+    ))
   })
   
-
   
   #loading in the model 
   celticsim <- readRDS("Celtic_16_untuned.rds")
@@ -765,7 +765,7 @@ server <- function(input, output, session) {
     progress$inc(amount = 1 / total_steps, message = "Finalising plotting functions...")
     # Return the results
     list(sizelevel = sizelevel, specieslevel = specieslevel, guildlevel = guildlevel, dietplot = dietplot)
-    })
+  })
   
   #Now this next bit of code takes the outputs from the biomass change section 
   #and plots them into the tabs / app
@@ -783,8 +783,8 @@ server <- function(input, output, session) {
     specieschange()$dietplot+scale_x_discrete(limits = ordered_species())
   })
   
-
-
+  
+  
   
   #This next section is for the added mortality - everything is the same as 
   #above, except for the first section where the mortality is added
@@ -958,7 +958,7 @@ server <- function(input, output, session) {
     
     celticsim <- readRDS("Celtic_16_untuned.rds")
     speciessim <- celticsim
-
+    
     for (i in 1:nrow(breakpoints)) {
       speciessim <- celticsim
       
@@ -985,14 +985,14 @@ server <- function(input, output, session) {
     }
     return(breaksim)
   })
-
+  
   
   #this takes the sims and normalises to the unharvested!
   generateNormalizedData <- function() {
     
     sims <- breaksim()
     breakpoints <- breaks()
-
+    
     unharvestedprojection <- project(celticsim,
                                      effort = c(commercial = 0, pelagic = 1, beam = 1, otter = 1),
                                      t_max = breakpoints$time[1])
@@ -1007,63 +1007,63 @@ server <- function(input, output, session) {
       mutate(normalized_value = ((value.x / value.y) - 1) * 100) %>%
       select(Species, normalized_value, sim) %>%
       filter(!Species %in% c("2", "4", "6", "8", "16", "17", "18", "19", "20", "Resource"))
-
+    
     return(normalized_data)
   }
-
+  
   
   #This takes the values and creates the plot and the dynamic ui - for the scrollable species tab
   # I cant find a way that works without repeating the code like this. I am sure its possible, but..
   
   generateSimulationPlots <- function(normalized_data,  ui_output_id = "plots_breaks") {
-
-      data_list <- split(normalized_data, normalized_data$sim)
-      
-      num_plots <- length(data_list)
-      lapply(1:num_plots, function(i) {
-        local({
-          my_i <- i
-          plotname <- paste("plot_breaks", my_i, sep = "")
-          output[[plotname]] <- renderPlotly({
-            current_data <- data_list[[my_i]]
-            mort_value <- breaks()$mort[my_i] * 100
-            formatted_mort_value <- sprintf("%.2f%%", mort_value)
-            plot_title <- paste(formatted_mort_value)
-            create_species_level_plot(current_data, plot_title)
-          })
+    
+    data_list <- split(normalized_data, normalized_data$sim)
+    
+    num_plots <- length(data_list)
+    lapply(1:num_plots, function(i) {
+      local({
+        my_i <- i
+        plotname <- paste("plot_breaks", my_i, sep = "")
+        output[[plotname]] <- renderPlotly({
+          current_data <- data_list[[my_i]]
+          mort_value <- breaks()$mort[my_i] * 100
+          formatted_mort_value <- sprintf("%.2f%%", mort_value)
+          plot_title <- paste(formatted_mort_value)
+          create_species_level_plot(current_data, plot_title)
         })
       })
-      
-
-      lapply(1:num_plots, function(i) {
-        local({
-          my_i <- i
-          plotname <- paste("plot_biomass", my_i, sep = "")
-          output[[plotname]] <- renderPlotly({
-            current_data <- data_list[[my_i]]
-            mort_value <- breaks()$mort[my_i] * 100
-            formatted_mort_value <- sprintf("%.2f%%", mort_value)
-            plot_title <- paste(formatted_mort_value)
-            create_species_level_plot(current_data, plot_title)
-          })
+    })
+    
+    
+    lapply(1:num_plots, function(i) {
+      local({
+        my_i <- i
+        plotname <- paste("plot_biomass", my_i, sep = "")
+        output[[plotname]] <- renderPlotly({
+          current_data <- data_list[[my_i]]
+          mort_value <- breaks()$mort[my_i] * 100
+          formatted_mort_value <- sprintf("%.2f%%", mort_value)
+          plot_title <- paste(formatted_mort_value)
+          create_species_level_plot(current_data, plot_title)
         })
       })
-      
-      output[["plots_breaks"]] <- renderUI({
-        plot_output_list <- lapply(1:num_plots, function(i) {
-          plotname <- paste("plot_breaks", i, sep = "")
-          plotlyOutput(plotname, height = "400px")
-        })
-        do.call(tagList, plot_output_list)
+    })
+    
+    output[["plots_breaks"]] <- renderUI({
+      plot_output_list <- lapply(1:num_plots, function(i) {
+        plotname <- paste("plot_breaks", i, sep = "")
+        plotlyOutput(plotname, height = "400px")
       })
-      
-      output[["plots_breaks_biomass"]] <- renderUI({
-        plot_output_list <- lapply(1:num_plots, function(i) {
-          plotname <- paste("plot_biomass", i, sep = "")
-          plotlyOutput(plotname, height = "400px")
-        })
-        do.call(tagList, plot_output_list)
+      do.call(tagList, plot_output_list)
+    })
+    
+    output[["plots_breaks_biomass"]] <- renderUI({
+      plot_output_list <- lapply(1:num_plots, function(i) {
+        plotname <- paste("plot_biomass", i, sep = "")
+        plotlyOutput(plotname, height = "400px")
       })
+      do.call(tagList, plot_output_list)
+    })
     #})
   }
   
@@ -1080,7 +1080,7 @@ server <- function(input, output, session) {
     }
   })
   
-
+  
   #now this next section generates the line graph
   linebreak <- reactive({
     generateNormalizedData()
@@ -1093,7 +1093,7 @@ server <- function(input, output, session) {
         sims <- breaks()
         data <- data %>%
           left_join(sims, by = "sim")
-
+        
         p <- ggplot(data, aes(x = mort, y = normalized_value, color = Species)) +
           geom_line() +
           geom_point() +
@@ -1104,7 +1104,7 @@ server <- function(input, output, session) {
             color = "Species"
           ) +
           theme_minimal()
-
+        
         ggplotly(p)
       })
     } else if (input$breakpoint_tabpanel == "Biomass") {
@@ -1113,7 +1113,7 @@ server <- function(input, output, session) {
         sims <- breaks()
         data <- data %>%
           left_join(sims, by = "sim")
-
+        
         p <- ggplot(data, aes(x = mort, y = normalized_value, color = Species)) +
           geom_line() +
           geom_point() +
@@ -1124,12 +1124,12 @@ server <- function(input, output, session) {
             color = "Species"
           ) +
           theme_minimal()
-
+        
         ggplotly(p)
       })
     }
   })
-
+  
   
 }
 
@@ -1480,177 +1480,176 @@ ui <- fluidPage(
         id="breakpoint_tabpanel",
         selected="Biomass",
         tabPanel(
-      title = "Biomass",
-      value = "Biomass",
-      grid_container(
-        layout = c(
-          "area1 area0"
-        ),
-        row_sizes = c(
-          "1fr"
-        ),
-        col_sizes = c(
-          "0.3fr",
-          "1.7fr"
-        ),
-        gap_size = "10px",
-      
-        grid_card(
-          area = "area1",
-          card_body(
-            sliderInput(
-              inputId = "breakspecies",
-              label = HTML("Starting Biomass <button id='infoButtonSpecies' class='btn btn-info btn-xs' type='button' style='padding-left: 7px;' data-toggle='popover' data-title='' data-content='Slider value indicates the starting biomass of the species for breakpoints. Example: to increase the starting population of a given species by 20%, set value on the slider to 1.2. To decrease by 20%, set value to 0.8.'><strong>?</strong></button>"),
-              min = 0,
-              max = 2,
-              value = c(1,1),
-              step = 0.01,
-              width = "100%"
-            )%>%tagAppendAttributes(id = "breakspecies"),
-            sliderInput(
-              inputId = "breakyear",
-              label = "Year to Analyse",
-              min = 0,
-              max = 100,
-              value = 1,
-              step = 1,
-              width = "100%"
-            )%>%tagAppendAttributes(id = "breakyear"),
-            numericInput(
-              inputId = "breaknumber_species",
-              label = "Number of Simulations",
-              value = 10
-            )%>%tagAppendAttributes(id = "breaknumber_species"),
-            selectInput(
-              inputId = "breakname_select",
-              label = "Select a Species:",
-              choices = c("Herring", "Sprat", 
-                          "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
-                          "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
-                          "Plaice", "Megrim", "Sole")
-            )%>%tagAppendAttributes(id = "breakname_select"),
-            actionButton(inputId = "breakset_year_5", label = "5 Years", class = "btn-small"),
-            actionButton(inputId = "breakset_year_15", label = "15 Years", class = "btn-small"),
-            actionButton(inputId = "breakset_year_30", label = "30 Years", class = "btn-small"),
-            actionButton(inputId = "goButton", label = "Run Simulation")
-          )
-        ),
-        
-        # Main Panel for Breakpoint
-        grid_card(
-          area = "area0",
-          card_body(
-            tabsetPanel(
-              id="breakplotting",
-              tabPanel(title = "Scrollable Species", uiOutput("plots_breaks_biomass")),
-              tabPanel(title = "Line Graph", plotlyOutput("line_breaks_biomass"))
-            )
-          ),
-          card_body(
-            # Figure legend for the "Species" tab
-            conditionalPanel(
-              condition = "input.breakplotting == 'Scrollable Species'",
-              h4("Legend"),
-              p("Example text")
+          title = "Biomass",
+          value = "Biomass",
+          grid_container(
+            layout = c(
+              "area1 area0"
+            ),
+            row_sizes = c(
+              "1fr"
+            ),
+            col_sizes = c(
+              "0.3fr",
+              "1.7fr"
+            ),
+            gap_size = "10px",
+            
+            grid_card(
+              area = "area1",
+              card_body(
+                sliderInput(
+                  inputId = "breakspecies",
+                  label = HTML("Starting Biomass <button id='infoButtonSpecies' class='btn btn-info btn-xs' type='button' style='padding-left: 7px;' data-toggle='popover' data-title='' data-content='Slider value indicates the starting biomass of the species for breakpoints. Example: to increase the starting population of a given species by 20%, set value on the slider to 1.2. To decrease by 20%, set value to 0.8.'><strong>?</strong></button>"),
+                  min = 0,
+                  max = 2,
+                  value = c(1,1),
+                  step = 0.01,
+                  width = "100%"
+                )%>%tagAppendAttributes(id = "breakspecies"),
+                sliderInput(
+                  inputId = "breakyear",
+                  label = "Year to Analyse",
+                  min = 0,
+                  max = 100,
+                  value = 1,
+                  step = 1,
+                  width = "100%"
+                )%>%tagAppendAttributes(id = "breakyear"),
+                numericInput(
+                  inputId = "breaknumber",
+                  label = "Number of Simulations",
+                  value = 10
+                )%>%tagAppendAttributes(id = "breaknumber"),
+                selectInput(
+                  inputId = "breakname_select",
+                  label = "Select a Species:",
+                  choices = c("Herring", "Sprat", 
+                              "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
+                              "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
+                              "Plaice", "Megrim", "Sole")
+                )%>%tagAppendAttributes(id = "breakname_select"),
+                actionButton(inputId = "breakset_year_5", label = "5 Years", class = "btn-small"),
+                actionButton(inputId = "breakset_year_15", label = "15 Years", class = "btn-small"),
+                actionButton(inputId = "breakset_year_30", label = "30 Years", class = "btn-small"),
+                actionButton(inputId = "goButton", label = "Run Simulation")
+              )
             ),
             
-            # Figure legend for the "Size" tab
-            conditionalPanel(
-              condition = "input.breakplotting == 'Line Graph'",
-              h4("Legend"),
-              p("Example text")
+            # Main Panel for Breakpoint
+            grid_card(
+              area = "area0",
+              card_body(
+                tabsetPanel(
+                  id="breakplotting",
+                  tabPanel(title = "Scrollable Species", uiOutput("plots_breaks_biomass")),
+                  tabPanel(title = "Line Graph", plotlyOutput("line_breaks_biomass"))
+                )
+              ),
+              card_body(
+                # Figure legend for the "Species" tab
+                conditionalPanel(
+                  condition = "input.breakplotting == 'Scrollable Species'",
+                  h4("Legend"),
+                  p("Example text")
+                ),
+                
+                # Figure legend for the "Size" tab
+                conditionalPanel(
+                  condition = "input.breakplotting == 'Line Graph'",
+                  p("Example text")
+                )
+              )
+            )
+          )
+          #)
+        ),
+        tabPanel(
+          title = "Mortality",
+          value = "Mortality",
+          grid_container(
+            layout = c(
+              "area1 area0"
+            ),
+            row_sizes = c(
+              "1fr"
+            ),
+            col_sizes = c(
+              "0.3fr",
+              "1.7fr"
+            ),
+            gap_size = "10px",
+            
+            grid_card(
+              area = "area1",
+              card_body(
+                sliderInput(
+                  inputId = "breakrange",
+                  label = HTML("Mortality Change <button id='infoButtonMort' class='btn btn-info btn-xs' type='button' style='padding-left: 7px;' data-toggle='popover' data-content='Slider value indicates the change in mortality of a species. Example: to increase the mortality of a species by 1%, set the value of the slider to 0.01. This will change the mortality throughout the simulation to be 1% higher. If you want it to be a 1% decrease, set value to -0.01'><strong>?</strong></button>"),
+                  min = -0.5,
+                  max = 0.5,
+                  value = c(0,0),
+                  step = 0.01,
+                  width = "100%"
+                )%>%tagAppendAttributes(id = "breakmort"),
+                sliderInput(
+                  inputId = "breakyear",
+                  label = "Year to Analyse",
+                  min = 0,
+                  max = 100,
+                  value = 1,
+                  step = 1,
+                  width = "100%"
+                )%>%tagAppendAttributes(id = "breakyear_mort"),
+                numericInput(
+                  inputId = "breaknumber",
+                  label = "Number of Simulations",
+                  value = 10
+                )%>%tagAppendAttributes(id = "breaknumber_species"),
+                selectInput(
+                  inputId = "breakname_select",
+                  label = "Select a Species:",
+                  choices = c("Herring", "Sprat", 
+                              "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
+                              "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
+                              "Plaice", "Megrim", "Sole")
+                )%>%tagAppendAttributes(id = "breakname_select_mort"),
+                actionButton(inputId = "breakset_year_5", label = "5 Years", class = "btn-small"),
+                actionButton(inputId = "breakset_year_15", label = "15 Years", class = "btn-small"),
+                actionButton(inputId = "breakset_year_30", label = "30 Years", class = "btn-small"),
+                actionButton(inputId = "goButton", label = "Run Simulation")
+              )
+            ),
+            
+            # Main Panel for Breakpoint
+            grid_card(
+              area = "area0",
+              card_body(
+                tabsetPanel(
+                  id="breakplotting_mort",
+                  tabPanel(title = "Scrollable Species", uiOutput("plots_breaks")),
+                  tabPanel(title = "Line Graph", plotlyOutput("line_breaks"))
+                )
+              ),
+              card_body(
+                # Figure legend for the "Species" tab
+                conditionalPanel(
+                  condition = "input.breakplotting_mort == 'Scrollable Species'",
+                  h4("Legend"),
+                  p("Example text")
+                ),
+                
+                # Figure legend for the "Size" tab
+                conditionalPanel(
+                  condition = "input.breakplotting_mort == 'Line Graph'",
+                  h4("Legend"),
+                  p("Example text")
+                )
+              )
             )
           )
         )
       )
-      #)
-    ),
-    tabPanel(
-      title = "Mortality",
-      value = "Mortality",
-      grid_container(
-        layout = c(
-          "area1 area0"
-        ),
-        row_sizes = c(
-          "1fr"
-        ),
-        col_sizes = c(
-          "0.3fr",
-          "1.7fr"
-        ),
-        gap_size = "10px",
-        
-        grid_card(
-          area = "area1",
-          card_body(
-            sliderInput(
-              inputId = "breakrange",
-              label = HTML("Mortality Change <button id='infoButtonMort' class='btn btn-info btn-xs' type='button' style='padding-left: 7px;' data-toggle='popover' data-content='Slider value indicates the change in mortality of a species. Example: to increase the mortality of a species by 1%, set the value of the slider to 0.01. This will change the mortality throughout the simulation to be 1% higher. If you want it to be a 1% decrease, set value to -0.01'><strong>?</strong></button>"),
-              min = -0.5,
-              max = 0.5,
-              value = c(0,0),
-              step = 0.01,
-              width = "100%"
-            )%>%tagAppendAttributes(id = "breakmort"),
-            sliderInput(
-              inputId = "breakyear",
-              label = "Year to Analyse",
-              min = 0,
-              max = 100,
-              value = 1,
-              step = 1,
-              width = "100%"
-            )%>%tagAppendAttributes(id = "breakyear_mort"),
-            numericInput(
-              inputId = "breaknumber",
-              label = "Number of Simulations",
-              value = 10
-            )%>%tagAppendAttributes(id = "breaknumber"),
-            selectInput(
-              inputId = "breakname_select",
-              label = "Select a Species:",
-              choices = c("Herring", "Sprat", 
-                          "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
-                          "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
-                          "Plaice", "Megrim", "Sole")
-            )%>%tagAppendAttributes(id = "breakname_select_mort"),
-            actionButton(inputId = "breakset_year_5", label = "5 Years", class = "btn-small"),
-            actionButton(inputId = "breakset_year_15", label = "15 Years", class = "btn-small"),
-            actionButton(inputId = "breakset_year_30", label = "30 Years", class = "btn-small"),
-            actionButton(inputId = "goButton", label = "Run Simulation")
-          )
-        ),
-        
-        # Main Panel for Breakpoint
-        grid_card(
-          area = "area0",
-          card_body(
-            tabsetPanel(
-              id="breakplotting_mort",
-              tabPanel(title = "Scrollable Species", uiOutput("plots_breaks")),
-              tabPanel(title = "Line Graph", plotlyOutput("line_breaks"))
-            )
-          ),
-          card_body(
-            # Figure legend for the "Species" tab
-            conditionalPanel(
-              condition = "input.breakplotting_mort == 'Scrollable Species'",
-              h4("Legend"),
-              p("Example text")
-            ),
-            
-            # Figure legend for the "Size" tab
-            conditionalPanel(
-              condition = "input.breakplotting_mort == 'Line Graph'",
-              h4("Legend"),
-              p("Example text")
-            )
-          )
-        )
-      )
-      )
-     )
     ),
     # Fishery Strategy Tab
     tabPanel(
