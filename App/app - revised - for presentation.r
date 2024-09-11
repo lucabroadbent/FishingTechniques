@@ -208,31 +208,55 @@ server <- function(input, output, session) {
     } else if (input$bigtabpanel == "Fishery Strategy") {
       
       intro_steps <- list(
-        list(element = "#breakspecies", title = "Biomass Slider", 
-             intro = "The biomass slider here works in the same way as the biomass
-                 slider in the Single Species section of the app. The only difference is now
-                 you choose a range of biomass values to investigate."
+        list(element = "#fishyyear", title = "Year Range to Plot", 
+             intro = "Choose a year within the simulation to plot, this can be across a range."
         ),
-        list(element = "#breakyear", title = "Year", 
-             intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
+        list(element = "#fishery_sliders", title = "Fishery Sliders", 
+             intro = "The sliders here change the fishing effort of each fishery. Each of these fisheries
+             attempt to model fishing fleets with common characteristics. The fishing strategies
+             seen here are considered the current fishing strategies (0/1/1/1, respectively). Any values
+             higher than this increase the fishing effort imposed by the current fishery and any values lower
+             is the converse."
         ),
-        list(element = "#breaknumber_species", title = "Break Number", 
-             intro = "The number chosen here is the amount of simulations that you want to run
-                 between the range of biomass values chosen on the slider. Each value of changed biomass
-                 is equidistant to others."),
-        list(element = "#breakplotting .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
-             intro = "This is the first plot that you will see. It is the same as the species plots
-               found in the Single Species section of the app, except that there is one plot for each
-               simulation that you have ran, and these plots are placed on top of each other, so that it
-               is possible to scroll down and observe the change."
+        list(element = "#fishy_choose", title = "Choose Fish to Plot", 
+             intro = "This choice is only relevant to the Single Diet plot, and changes the species
+             that is plotted."),
+        list(element = "#select_species_fishy", title = "Order of Species", 
+             intro = "This choice changes the way that the species is ordered on the X axis 
+             in certain plots."),
+        list(element = "#fishy_plots .nav-link[data-value='Yield']", title = "Yield Plot", 
+             intro = "This plot shows the yield over time of each given species"
         ),
-        list(element = "#breakplotting .nav-link[data-value='Line Graph']", title = "Line Breaks", 
-             intro = "The next plot is of the same information, but plotted in a different format.
-               This time, the X axis is the % change in starting biomass of the given species, and the Y
-               axis details the % percentage change in each species in comparison to the current fishing scenario.
-               As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
-               like to remove on the figure legend."
+        list(element = "#fishy_plots .nav-link[data-value='Species']", title = "Species Plot", 
+             intro = "This plot shows the relative species biomass of each species (to the current fishing 
+             scenario), at three timescales (the middle bar is the chosen time range, the lowest is 1/2 of this
+             value, the highest is 2x this value)"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Size']", title = "Relative Size Spectrum Plot", 
+             intro = "This plot shows the community size spectrum, or the biomass of all fish for that given size,
+             normalised to the current fishing scenario"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Guild']", title = "Guild Plot", 
+             intro = "This plot shows the biomass change in each separate feeding guild in comparison 
+             to the current fishing scenario. A feeding guild is certain sizes and species of fish who feed on
+             similar prey items. "
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Diet']", title = "Diet Plot", 
+             intro = "This plot shows the proportion of the diet that a given prey item is making up in 
+             a given predator. The colour denotes the difference in comparison to the current fishing scenario"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Spectra']", title = "Size Spectrum Plot", 
+             intro = "This plot is the size spectrum (the biomass distribution across sizes of fish) of each
+             species of fish in the model"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Single Diet']", title = "Single Diet Plot", 
+             intro = "This plot shows the proportion of prey items in a predators diet and how it changes
+             as they reach larger size classes."
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Biomass']", title = "Biomass Plot", 
+             intro = "This plot shows the biomass of each species across time."
         )
+
       )
       
     }
@@ -327,7 +351,7 @@ server <- function(input, output, session) {
                               resource = FALSE, background = FALSE,
                               time_range = time1:time2)
     
-    sf <- left_join(sf1, sf2, by = c("w", "Legend")) |>
+    sf <- left_join(sf2, sf1, by = c("w", "Legend")) |>
       group_by(w) |>
       summarise(x = sum(value.x, na.rm = TRUE),
                 y = sum(value.y, na.rm = TRUE)) |>
@@ -752,6 +776,8 @@ server <- function(input, output, session) {
   
   specieschange <- eventReactive(input$goButton1,{
     
+    speciessim <- celticsim
+    
     progress <- shiny::Progress$new()
     on.exit(progress$close())
     progress$set(message = "Running simulation...", value = 0)
@@ -816,6 +842,8 @@ server <- function(input, output, session) {
   #This next section is for the added mortality - everything is the same as 
   #above, except for the first section where the mortality is added
   mortspecieschange <- eventReactive(input$goButton3, {
+    
+    speciessim <- celticsim
     
     # Initialize the progress bar
     progress <- shiny::Progress$new()
@@ -1369,29 +1397,50 @@ ui <- fluidPage(
                 # Figure legend for the "Species" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Species'",
-                  h4("Figure Legend"),
-                  p("Example text")
+                  h4("Legend"),
+                  p("Change in biomass of each species across a time range.
+                    The X axis on this plot shows the species, and the Y axis
+                    is the percentage change in the biomass of the given species. This is 
+                    in comparison to a identical mizer simulation, except without
+                    the changed starting biomass.    
+                    Each species is separated into three bars, the middle bar is the chosen 
+                    time range as seen in the slider, the left bar is 1/2 of this value, and the right
+                    bar is 2x this value. The colour of the bar (red/blue) indicates whether the change is positive
+                    or negative, the shade of the colour indicates the time range that it represents, short/chosen/long = 
+                    dark to light shading.
+                    ")
                 ),
                 
                 # Figure legend for the "Size" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Size'",
-                  h4("Figure Legend"),
-                  p("Example text")
+                  h4("Legend"),
+                  p("Change in the community size spectrum in comparison to the unchanged scenario.
+                  The community size spectrum is the biomass of all species in the ecosystem at that given size.
+                  The blue line indicates this changed community size spectrum, the grey line indicates
+                    the unchanged community size spectrum at the given time.
+                    ")
                 ),
                 
                 # Figure legend for the "Guilds" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Guilds'",
-                  h4("Figure Legend"),
-                  p("Example text.")
+                  h4("Legend"),
+                  p("Change in feeding guilds across the entire community in comparison to 
+                  the unchanged model. Each three of the bars indicates a different time range;
+                  left/darkest is 1/2 of the chosen time, middle is the chosen time, brighest is 2x
+                  the chosen time.
+                    Feeding guilds are groupings of fish based on diet and life stage. ")
                 ),
                 
                 # Figure legend for the "Diet" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Diet'",
-                  h4("Figure Legend"),
-                  p("Example text")
+                  h4("Legend"),
+                  p("Matrix which details the change in proportion of every species in the diet 
+                    of a given predator. The colour indicates whether the proportion of the given 
+                    species has decreased. Blue is increase, red is decrease. It is possible to change
+                    the order of the species shown on the X axis by using the configuration panel.")
                 )
               )
             )
@@ -1470,28 +1519,48 @@ ui <- fluidPage(
                        conditionalPanel(
                          condition = "input.plotTabs_mort == 'Species'",
                          h4("Legend"),
-                         p("Example text")
+                         p("Change in biomass of each species across a time range.
+                    The X axis on this plot shows the species, and the Y axis
+                    is the percentage change in the biomass of the given species. This is 
+                    in comparison to a identical mizer simulation, except without
+                    the changed mortality of the given species.    
+                    Each species is separated into three bars, the middle bar is the chosen 
+                    time range as seen in the slider, the left bar is 1/2 of this value, and the right
+                    bar is 2x this value. The colour of the bar (red/blue) indicates whether the change is positive
+                    or negative, the shade of the colour indicates the time range that it represents, short/chosen/long = 
+                    dark to light shading.")
                        ),
                        
                        # Figure legend for the "Size" tab
                        conditionalPanel(
                          condition = "input.plotTabs_mort == 'Size'",
                          h4("Legend"),
-                         p("Example text")
+                         p("Change in the community size spectrum in comparison to the unchanged scenario.
+                  The community size spectrum is the biomass of all species in the ecosystem at that given size.
+                  The blue line indicates this changed community size spectrum, the grey line indicates
+                    the unchanged community size spectrum at the given time.")
                        ),
                        
                        # Figure legend for the "Guilds" tab
                        conditionalPanel(
                          condition = "input.plotTabs_mort == 'Guilds'",
                          h4("Legend"),
-                         p("Example text.")
+                         p("Change in feeding guilds across the entire community in comparison to 
+                  the unchanged model. Each three of the bars indicates a different time range;
+                  left/darkest is 1/2 of the chosen time, middle is the chosen time, brighest is 2x
+                  the chosen time.
+                    Feeding guilds are groupings of fish based on diet and life stage.")
                        ),
                        
                        # Figure legend for the "Diet" tab
                        conditionalPanel(
                          condition = "input.plotTabs_mort == 'Diet'",
                          h4("Legend"),
-                         p("Example text")
+                         p("Matrix which details the change in proportion of every species in the diet 
+                    of a given predator. The colour indicates whether the proportion of the given 
+                    species has decreased. Blue is increase, red is decrease. It is possible to change
+                    the order of the species shown on the X axis by using the configuration panel.")
+                       
                        )
                      )
                    )
@@ -1707,8 +1776,10 @@ ui <- fluidPage(
               value = c(1, 2),
               step = 1,
               width = "100%"
-            ),
-            sliderInput(
+            )%>%tagAppendAttributes(id = "fishyyear"),
+            div(
+              id = "fishery_sliders",
+              sliderInput(
               inputId = "industrial",
               label = "Commercial",
               min = 0,
@@ -1743,7 +1814,7 @@ ui <- fluidPage(
               value = 1,
               step = 0.1,
               width = "100%"
-            ),
+            )),
             selectInput(
               inputId = "fish_name_select",
               label = "Select a Species:",
@@ -1751,32 +1822,106 @@ ui <- fluidPage(
                           "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
                           "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
                           "Plaice", "Megrim", "Sole")
-            )%>%tagAppendAttributes(id = "species_chose"),
+            )%>%tagAppendAttributes(id = "fishy_choose"),
             selectInput(
               inputId = "species_order",
               label = HTML("Species Order on Axis <button id='infoButtonOrder' class='btn btn-info btn-xs' type='button' style='padding-left: 7px;' data-toggle='popover' data-content='Select how you want the species to be ordered on the axis. Options include Alphabetical, Size, and Guild.'><strong>?</strong></button>"),
               choices = c("Alphabetical","Size","Guild")
-            )%>%tagAppendAttributes(id = "select_species"),
+            )%>%tagAppendAttributes(id = "select_species_fishy"),
             actionButton(inputId = "goButton2", label = "Run Simulation")
           )
+          
         ),
         
         # Main Panel for Fishery Strategy
-        grid_card(
-          area = "area0",
-          card_body(
-            tabsetPanel(
-              tabPanel(title = "Yield", plotlyOutput("yieldPlot")),
-              tabPanel(title = "Species", plotlyOutput("fishspeciesPlot")),
-              tabPanel(title = "Size", plotlyOutput("fishsizePlot")),
-              tabPanel(title = "Guild", plotlyOutput("fishguildPlot")),
-              tabPanel(title = "Diet", plotlyOutput("fishdietPlot")),
-              tabPanel(title = "Spectra", plotlyOutput("spectrumPlot")),
-              tabPanel(title = "Single Diet", plotlyOutput("fishdietsinglePlot")),
-              tabPanel(title = "Biomass", plotlyOutput("fishbiomassPlot"))
-              
-            )
-          )
+        grid_card(area = "area0",
+                  card_body(
+                    tabsetPanel(
+                      id="fishy_plots",
+                      tabPanel(title = "Yield", plotlyOutput("yieldPlot")),
+                      tabPanel(title = "Species", plotlyOutput("fishspeciesPlot")),
+                      tabPanel(title = "Size", plotlyOutput("fishsizePlot")),
+                      tabPanel(title = "Guild", plotlyOutput("fishguildPlot")),
+                      tabPanel(title = "Diet", plotlyOutput("fishdietPlot")),
+                      tabPanel(title = "Spectra", plotlyOutput("spectrumPlot")),
+                      tabPanel(title = "Single Diet", plotlyOutput("fishdietsinglePlot")),
+                      tabPanel(title = "Biomass", plotlyOutput("fishbiomassPlot"))
+                    )
+                  ),
+                  card_body(
+                    # Conditional panel for "Yield"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Yield'",
+                      h4("Legend"),
+                      p("Yield of each of the species across time")
+                    ),
+                    
+                    # Conditional panel for "Species"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Species'",
+                      h4("Legend"),
+                      p("Change in biomass of each species across a time range.
+                    The X axis on this plot shows the species, and the Y axis
+                    is the percentage change in the biomass of the given species. This is 
+                    in comparison to a identical mizer simulation, except with the current 
+                    fishing scenario (0/1/1/1 on the sliders).    
+                    Each species is separated into three bars, the middle bar is the chosen 
+                    time range as seen in the slider, the left bar is 1/2 of this value, and the right
+                    bar is 2x this value. The colour of the bar (red/blue) indicates whether the change is positive
+                    or negative, the shade of the colour indicates the time range that it represents, short/chosen/long = 
+                    dark to light shading.")
+                    ),
+                    
+                    # Conditional panel for "Size"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Size'",
+                      h4("Legend"),
+                      p("Change in the community size spectrum in comparison to the unchanged scenario.
+                  The community size spectrum is the biomass of all species in the ecosystem at that given size.
+                  The blue line indicates this changed community size spectrum, the grey line indicates
+                    the current fishing scenario's community size spectrum at the given time.")
+                    ),
+                    
+                    # Conditional panel for "Guild"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Guild'",
+                      h4("Legend"),
+                      p("Change in feeding guilds across the entire community in comparison to 
+                  the current fishing scenario. Each three of the bars indicates a different time range;
+                  left/darkest is 1/2 of the chosen time, middle is the chosen time, brighest is 2x
+                  the chosen time.
+                    Feeding guilds are groupings of fish based on diet and life stage. ")
+                    )
+                    ),
+                    
+                    # Conditional panel for "Diet"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Diet'",
+                      h4("Legend"),
+                      p("Legend for Diet")
+                    ),
+                    
+                    # Conditional panel for "Spectra"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Spectra'",
+                      h4("Legend"),
+                      p("Legend for Spectra")
+                    ),
+                    
+                    # Conditional panel for "Single Diet"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Single Diet'",
+                      h4("Legend"),
+                      p("Legend for Single Diet")
+                    ),
+                    
+                    # Conditional panel for "Biomass"
+                    conditionalPanel(
+                      condition = "input.fishy_plots == 'Biomass'",
+                      h4("Legend"),
+                      p("Legend for Biomass")
+                    )
+                  )
         )
       )
     ),

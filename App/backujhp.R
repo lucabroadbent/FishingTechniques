@@ -24,197 +24,248 @@ library(rintrojs)
 server <- function(input, output, session) {
   
   
-  
   observeEvent(input$start_tutorial, {
-    print(paste("bigtabpanel:", input$bigtabpanel))
-    print(paste("mortnsp_tab:", input$mortnsp_tab))
-    print(paste("breakpoint_tabpanel:", input$breakpoint_tabpanel))
-    introjs(session, options = list(
-      steps = if (input$bigtabpanel == "Single Species") {
-        if (input$mortnsp_tab == "Biomass") {
-          list(
-            list(element = "#species_slider", title = "Biomass Slider", 
-                 intro = "This slider will change the starting biomass of the 
+    req(input$bigtabpanel)  # Ensure bigtabpanel is not NULL
+    req(input$mortnsp_tab)  # Ensure mortnsp_tab is not NULL
+    req(input$breakpoint_tabpanel)  # Ensure breakpoint_tabpanel is not NULL
+    
+    intro_steps <- list()  # Initialize an empty list for steps
+    
+    if (input$bigtabpanel == "Single Species") {
+      if (input$mortnsp_tab == "Biomass") {
+        intro_steps <- list(
+          list(element = "#species_slider", title = "Biomass Slider", 
+               intro = "This slider will change the starting biomass of the 
                  species in the model. Changing the starting biomass intends to
                  show the role of different species within the ecosystem, 
                  as the knock on effect of a biomass change should be in seen 
                  in the plots. Hover over the information button to learn more."),
-            list(element = "#yearspecies_slider", title = "Time Range Slider", 
-                 intro = "Changing the value of this slider will change the 
+          list(element = "#yearspecies_slider", title = "Time Range Slider", 
+               intro = "Changing the value of this slider will change the 
                  year that is plotted. It is useful to look at different time scales, 
                  as the impact of the imposed change may differ and it will show the 
                  oscillatory change in fish populations. The buttons below 
                  will set the year to 5, 15, or 30 years, which can be thought of 
                  as short, medium, and long term."),
-            list(element = "#species_chose", title = "Species Selector", 
-                 intro = "Here is where you choose the species you want to investigate. 
+          list(element = "#species_chose", title = "Species Selector", 
+               intro = "Here is where you choose the species you want to investigate. 
                  It is possible to change all the species within the model."),
-            list(element = "#goButton1", title = "Run Simulation", 
-                 intro = "Once you have chosen your settings in this configuration panel, 
+          list(element = "#goButton1", title = "Run Simulation", 
+               intro = "Once you have chosen your settings in this configuration panel, 
                  press this button to run the simulation. It will take about 15 seconds.
                  "),
-            list(element = "#select_species", title = "Species Order", 
-                 intro = "As some of the graphs show changes in each of the species within the model, 
+          list(element = "#select_species", title = "Species Order", 
+               intro = "As some of the graphs show changes in each of the species within the model, 
             the order that these species are presented may allow for easier observation of 
             any general patterns. Hover over the information button to learn more."),
-            list(element = "#plotTabs .nav-link[data-value='Species']", 
-                 intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
+          list(element = "#plotTabs .nav-link[data-value='Species']", 
+               intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
       except without the change in the species you have decided to change. Each species has 3 bars, which indicate the species percentage change on 
       across a shorter timescale (a half of the chosen time), the chosen timescale and a longer timescale (double the chosen time)... 
       " ),
-            list(element = "#plotTabs .nav-link[data-value='Species']", 
-                 intro = "Plotting all 3 timescales
+          list(element = "#plotTabs .nav-link[data-value='Species']", 
+               intro = "Plotting all 3 timescales
       aids in understanding the oscillatory nature of fish populations, but also gives a greater resolution of the effect of the imposed change.
       It is possible to change the order of the species on the X axis by using the options in the configuration panel. 
       " ),
-            list(element = "#plotTabs .nav-link[data-value='Size']", 
-                 intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
+          list(element = "#plotTabs .nav-link[data-value='Size']", 
+               intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
       the viewer of the change in community composition, more specifically, how the distribution of fish size has changed."
-            ),
-            list(element = "#plotTabs .nav-link[data-value='Guilds']", 
-                 intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
+          ),
+          list(element = "#plotTabs .nav-link[data-value='Guilds']", 
+               intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
        feeding pattern in relation to other fish. Observing this plot helps to understand how the trophic dynamics of the ecosystem are changing.
       Additionally, the guilds are plotted as 3 bars of a short, chosen and long timescale."
-            ),
-            list(element = "#plotTabs .nav-link[data-value='Diet']", 
-                 intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
+          ),
+          list(element = "#plotTabs .nav-link[data-value='Diet']", 
+               intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
       in proportion of a given species (on the Y axis) in another species diet (on the X axis). Similar to the guild plot, this plot attempts to highlight the 
       trophic dynamics of the ecosystem and provides information as to why changes in species populations or the size spectrum may
       have occured."
-            )
           )
-        } else if (input$mortnsp_tab == "Mortality") {
-          # Fill in Mortality tutorial steps here
-          list(
-            list(element = "#mort_slider", title = "Mortality Slider", 
-                 intro = "The Mortality slider changes the mortality rate of a given species, 
+        )
+      } else if (input$mortnsp_tab == "Mortality") {
+        intro_steps <- list(
+          list(element = "#mort_slider", title = "Mortality Slider", 
+               intro = "The Mortality slider changes the mortality rate of a given species, 
                  across their entire size range. In mizer, species are separated into
       size bins, each with their own mortality rate. Each size bin can be thought of a 
       size of the species, so the small/medium/large individuals of the species.
       The value on this slider is multiplied by the rate of mortality that each size bin 
       has, then this new value is added on to the original mortality... 
       "
-            ),
-            list(element = "#mort_slider", title = "Mortality Slider", 
-                 intro = "
+          ),
+          list(element = "#mort_slider", title = "Mortality Slider", 
+               intro = "
       Therefore, a value of 1.05 on the slider will increase the mortality of the species 
       by %5, similarly a value of 0.95 will decrease the mortality by
       5%. This change is imposed on a relative across all sizes of the given species, as smaller individuals of any fish
       species will have a higher mortality rate than larger individuals."
-            ),
-            list(element = "#yearspecies_slider_mort", title = "Time Range Slider", 
-                 intro = "Changing the value of this slider will change the 
+          ),
+          list(element = "#yearspecies_slider_mort", title = "Time Range Slider", 
+               intro = "Changing the value of this slider will change the 
                  year that is plotted. It is useful to look at different time scales, 
                  as the impact of the imposed change may differ and it will show the 
                  oscillatory change in fish populations. The buttons below 
                  will set the year to 5, 15, or 30 years, which can be thought of 
                  as short, medium, and long term."),
-            list(element = "#species_choose_mort", title = "Species Selector", 
-                 intro = "Here is where you choose the species you want to investigate. 
+          list(element = "#species_choose_mort", title = "Species Selector", 
+               intro = "Here is where you choose the species you want to investigate. 
                  It is possible to change all the species within the model."),
-            list(element = "#goButton3", title = "Run Simulation", 
-                 intro = "Once you have chosen your settings in this configuration panel, 
+          list(element = "#goButton3", title = "Run Simulation", 
+               intro = "Once you have chosen your settings in this configuration panel, 
                  press this button to run the simulation. It will take about 15 seconds.
                  "),
-            list(element = "#select_species_mort", title = "Species Order", 
-                 intro = "As some of the graphs show changes in each of the species within the model, 
+          list(element = "#select_species_mort", title = "Species Order", 
+               intro = "As some of the graphs show changes in each of the species within the model, 
             the order that these species are presented may allow for easier observation of 
             any general patterns. Hover over the information button to learn more."),
-            list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
-                 intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
+          list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
+               intro = "The first plot presents the percentage change in each of the species. This percentage change is relative to an equal ecosystem,
       except without the change in the species you have decided to change. Each species has 3 bars, which indicate the species percentage change on 
       across a shorter timescale (a half of the chosen time), the chosen timescale and a longer timescale (double the chosen time)... 
       " ),
-            list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
-                 intro = "Plotting all 3 timescales
+          list(element = "#plotTabs_mort .nav-link[data-value='Species']", 
+               intro = "Plotting all 3 timescales
       aids in understanding the oscillatory nature of fish populations, but also gives a greater resolution of the effect of the imposed change.
       It is possible to change the order of the species on the X axis by using the options in the configuration panel. 
       " ),
-            list(element = "#plotTabs_mort .nav-link[data-value='Size']", 
-                 intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
+          list(element = "#plotTabs_mort .nav-link[data-value='Size']", 
+               intro = "The next plot shows the relative change in the size spectrum on a community level. Plotting the size spectrum informs
       the viewer of the change in community composition, more specifically, how the distribution of fish size has changed."
-            ),
-            list(element = "#plotTabs_mort .nav-link[data-value='Guilds']", 
-                 intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
+          ),
+          list(element = "#plotTabs_mort .nav-link[data-value='Guilds']", 
+               intro = "The plot here showcases the change in the guilds within the species, which are fish in the ecosystem that share a distinct 
        feeding pattern in relation to other fish. Observing this plot helps to understand how the trophic dynamics of the ecosystem are changing.
       Additionally, the guilds are plotted as 3 bars of a short, chosen and long timescale."
-            ),
-            list(element = "#plotTabs_mort .nav-link[data-value='Diet']", 
-                 intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
+          ),
+          list(element = "#plotTabs_mort .nav-link[data-value='Diet']", 
+               intro = "The plot here is a matrix of each of the species on the X and Y axis, with the colour denoting the change
       in proportion of a given species (on the Y axis) in another species diet (on the X axis). Similar to the guild plot, this plot attempts to highlight the 
       trophic dynamics of the ecosystem and provides information as to why changes in species populations or the size spectrum may
       have occured."
-            )
           )
-        }
-      } else if (input$bigtabpanel == "Breakpoint") {
-        if (input$breakpoint_tabpanel == "Mortality") {
-          
-          list(
-            list(element = "#breakmort", title = "Biomass Slider", 
-                 intro = "The biomass slider here works in the same way as the biomass
-                 slider in the Single Species section of the app. The only difference is now
-                 you choose a range of biomass values to investigate."
-            ),
-            list(element = "#breakyear_mort", title = "Year", 
-                 intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
-            ),
-            list(element = "#breaknumber_species", title = "Break Number", 
-                 intro = "The number chosen here is the amount of simulations that you want to run
-                 between the range of biomass values chosen on the slider. Each value of changed biomass
-                 is equidistant to others."),
-            list(element = "#breakplotting_mort .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
-                 intro = "This is the first plot that you will see. It is the same as the species plots
-               found in the Single Species section of the app, except that there is one plot for each
-               simulation that you have ran, and these plots are placed on top of each other, so that it
-               is possible to scroll down and observe the change."
-            ),
-            list(element = "#breakplotting_mort .nav-link[data-value=''Line Graph']", title = "Line Breaks", 
-                 intro = "The next plot is of the same information, but plotted in a different format.
-               This time, the X axis is the % change in starting biomass of the given species, and the Y
-               axis details the % percentage change in each species in comparison to the current fishing scenario.
-               As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
-               like to remove on the figure legend."
-            )
-          )
-        } else if (input$breakpoint_tabpanel == "Biomass") {
-          
-          list(
-            list(element = "#breakspecies", title = "Mortality Slider", 
-                 intro = "The mortality slider here works in the same way as the mortality
+        )
+      }
+    } else if (input$bigtabpanel == "Breakpoint") {
+      if (input$breakpoint_tabpanel == "Mortality") {
+        intro_steps <-  list(
+          list(element = "#breakmort", title = "Mortality Slider", 
+               intro = "The mortality slider here works in the same way as the mortality
                  slider in the Single Species section of the app. The only difference is now
                  you choose a range of mortality values to investigate."
-            ),
-            list(element = "#breakyear", title = "Year", 
-                 intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
-            ),
-            list(element = "#breaknumber", title = "Break Number", 
-                 intro = "The number chosen here is the amount of simulations that you want to run
+          ),
+          list(element = "#breakyear_mort", title = "Year", 
+               intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
+          ),
+          list(element = "#breaknumber", title = "Break Number", 
+               intro = "The number chosen here is the amount of simulations that you want to run
                  between the range of mortality values chosen on the slider. Each value of changed mortality 
                  is equidistant to others."),
-            list(element = "#breakplotting .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
-                 intro = "This is the first plot that you will see. It is the same as the species plots
+          list(element = "#breakplotting_mort .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
+               intro = "This is the first plot that you will see. It is the same as the species plots
                found in the Single Species section of the app, except that there is one plot for each
                simulation that you have ran, and these plots are placed on top of each other, so that it
                is possible to scroll down and observe the change."
-            ),
-            list(element = "#breakplotting .nav-link[data-value=''Line Graph']", title = "Line Breaks", 
-                 intro = "The next plot is of the same information, but plotted in a different format.
+          ),
+          list(element = "#breakplotting_mort .nav-link[data-value='Line Graph']", title = "Line Breaks", 
+               intro = "The next plot is of the same information, but plotted in a different format.
                This time, the X axis is the % change in mortality of the given species, and the Y
                axis details the % percentage change in each species in comparison to the current fishing scenario.
                As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
                like to remove on the figure legend."
-            )
           )
-        }
-      } else if (input$bigtabpanel == "Fishery Strategy") {
-        
-        list(
-          # Example: list(element = "#element_id", title = "Title", intro = "Description.")
         )
-      } 
-    ))
+      } else if (input$breakpoint_tabpanel == "Biomass") {
+        intro_steps <- list(
+          list(element = "#breakspecies", title = "Biomass Slider", 
+               intro = "The biomass slider here works in the same way as the biomass
+                 slider in the Single Species section of the app. The only difference is now
+                 you choose a range of biomass values to investigate."
+          ),
+          list(element = "#breakyear", title = "Year", 
+               intro = "Similar to as seen prior, this slider chooses the year that you want to plot."
+          ),
+          list(element = "#breaknumber_species", title = "Break Number", 
+               intro = "The number chosen here is the amount of simulations that you want to run
+                 between the range of biomass values chosen on the slider. Each value of changed biomass
+                 is equidistant to others."),
+          list(element = "#breakplotting .nav-link[data-value='Scrollable Species']", title = "Scrollable Plot", 
+               intro = "This is the first plot that you will see. It is the same as the species plots
+               found in the Single Species section of the app, except that there is one plot for each
+               simulation that you have ran, and these plots are placed on top of each other, so that it
+               is possible to scroll down and observe the change."
+          ),
+          list(element = "#breakplotting .nav-link[data-value='Line Graph']", title = "Line Breaks", 
+               intro = "The next plot is of the same information, but plotted in a different format.
+               This time, the X axis is the % change in starting biomass of the given species, and the Y
+               axis details the % percentage change in each species in comparison to the current fishing scenario.
+               As this is a fairly cluttered plot, it can be simplified by clicking on the species that you would 
+               like to remove on the figure legend."
+          )
+        )
+      }
+    } else if (input$bigtabpanel == "Fishery Strategy") {
+      
+      intro_steps <- list(
+        list(element = "#fishyyear", title = "Year Range to Plot", 
+             intro = "Choose a year within the simulation to plot, this can be across a range."
+        ),
+        list(element = "#fishery_sliders", title = "Fishery Sliders", 
+             intro = "The sliders here change the fishing effort of each fishery. Each of these fisheries
+             attempt to model fishing fleets with common characteristics. The fishing strategies
+             seen here are considered the current fishing strategies (0/1/1/1, respectively). Any values
+             higher than this increase the fishing effort imposed by the current fishery and any values lower
+             is the converse."
+        ),
+        list(element = "#fishy_choose", title = "Choose Fish to Plot", 
+             intro = "This choice is only relevant to the Single Diet plot, and changes the species
+             that is plotted."),
+        list(element = "#select_species_fishy", title = "Order of Species", 
+             intro = "This choice changes the way that the species is ordered on the X axis 
+             in certain plots."),
+        list(element = "#fishy_plots .nav-link[data-value='Yield']", title = "Yield Plot", 
+             intro = "This plot shows the yield over time of each given species"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Species']", title = "Species Plot", 
+             intro = "This plot shows the relative species biomass of each species (to the current fishing 
+             scenario), at three timescales (the middle bar is the chosen time range, the lowest is 1/2 of this
+             value, the highest is 2x this value)"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Size']", title = "Relative Size Spectrum Plot", 
+             intro = "This plot shows the community size spectrum, or the biomass of all fish for that given size,
+             normalised to the current fishing scenario"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Guild']", title = "Guild Plot", 
+             intro = "This plot shows the biomass change in each separate feeding guild in comparison 
+             to the current fishing scenario. A feeding guild is certain sizes and species of fish who feed on
+             similar prey items. "
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Diet']", title = "Diet Plot", 
+             intro = "This plot shows the proportion of the diet that a given prey item is making up in 
+             a given predator. The colour denotes the difference in comparison to the current fishing scenario"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Spectra']", title = "Size Spectrum Plot", 
+             intro = "This plot is the size spectrum (the biomass distribution across sizes of fish) of each
+             species of fish in the model"
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Single Diet']", title = "Single Diet Plot", 
+             intro = "This plot shows the proportion of prey items in a predators diet and how it changes
+             as they reach larger size classes."
+        ),
+        list(element = "#fishy_plots .nav-link[data-value='Biomass']", title = "Biomass Plot", 
+             intro = "This plot shows the biomass of each species across time."
+        )
+        
+      )
+      
+    }
+    
+    if (length(intro_steps) > 0) {
+      introjs(session, options = list(steps = intro_steps))
+    }
   })
+  
   
   
   #loading in the model 
@@ -300,7 +351,7 @@ server <- function(input, output, session) {
                               resource = FALSE, background = FALSE,
                               time_range = time1:time2)
     
-    sf <- left_join(sf1, sf2, by = c("w", "Legend")) |>
+    sf <- left_join(sf2, sf1, by = c("w", "Legend")) |>
       group_by(w) |>
       summarise(x = sum(value.x, na.rm = TRUE),
                 y = sum(value.y, na.rm = TRUE)) |>
@@ -725,6 +776,8 @@ server <- function(input, output, session) {
   
   specieschange <- eventReactive(input$goButton1,{
     
+    speciessim <- celticsim
+    
     progress <- shiny::Progress$new()
     on.exit(progress$close())
     progress$set(message = "Running simulation...", value = 0)
@@ -789,6 +842,8 @@ server <- function(input, output, session) {
   #This next section is for the added mortality - everything is the same as 
   #above, except for the first section where the mortality is added
   mortspecieschange <- eventReactive(input$goButton3, {
+    
+    speciessim <- celticsim
     
     # Initialize the progress bar
     progress <- shiny::Progress$new()
@@ -1342,29 +1397,50 @@ ui <- fluidPage(
                 # Figure legend for the "Species" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Species'",
-                  h4("Figure Legend"),
-                  p("Example text")
+                  h4("Legend"),
+                  p("Change in biomass of each species across a time range.
+                    The X axis on this plot shows the species, and the Y axis
+                    is the percentage change in the biomass of the given species. This is 
+                    in comparison to a identical mizer simulation, except without
+                    the changed starting biomass.    
+                    Each species is separated into three bars, the middle bar is the chosen 
+                    time range as seen in the slider, the left bar is 1/2 of this value, and the right
+                    bar is 2x this value. The colour of the bar (red/blue) indicates whether the change is positive
+                    or negative, the shade of the colour indicates the time range that it represents, short/chosen/long = 
+                    dark to light shading.
+                    ")
                 ),
                 
                 # Figure legend for the "Size" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Size'",
-                  h4("Figure Legend"),
-                  p("Example text")
+                  h4("Legend"),
+                  p("Change in the community size spectrum in comparison to the unchanged scenario.
+                  The community size spectrum is the biomass of all species in the ecosystem at that given size.
+                  The blue line indicates this changed community size spectrum, the grey line indicates
+                    the unchanged community size spectrum at the given time.
+                    ")
                 ),
                 
                 # Figure legend for the "Guilds" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Guilds'",
-                  h4("Figure Legend"),
-                  p("Example text.")
+                  h4("Legend"),
+                  p("Change in feeding guilds across the entire community in comparison to 
+                  the unchanged model. Each three of the bars indicates a different time range;
+                  left/darkest is 1/2 of the chosen time, middle is the chosen time, brighest is 2x
+                  the chosen time.
+                    Feeding guilds are groupings of fish based on diet and life stage. ")
                 ),
                 
                 # Figure legend for the "Diet" tab
                 conditionalPanel(
                   condition = "input.plotTabs == 'Diet'",
-                  h4("Figure Legend"),
-                  p("Example text")
+                  h4("Legend"),
+                  p("Matrix which details the change in proportion of every species in the diet 
+                    of a given predator. The colour indicates whether the proportion of the given 
+                    species has decreased. Blue is increase, red is decrease. It is possible to change
+                    the order of the species shown on the X axis by using the configuration panel.")
                 )
               )
             )
@@ -1517,10 +1593,10 @@ ui <- fluidPage(
                   width = "100%"
                 )%>%tagAppendAttributes(id = "breakyear"),
                 numericInput(
-                  inputId = "breaknumber",
+                  inputId = "breaknumber_species",
                   label = "Number of Simulations",
                   value = 10
-                )%>%tagAppendAttributes(id = "breaknumber"),
+                )%>%tagAppendAttributes(id = "breaknumber_species"),
                 selectInput(
                   inputId = "breakname_select",
                   label = "Select a Species:",
@@ -1557,6 +1633,7 @@ ui <- fluidPage(
                 # Figure legend for the "Size" tab
                 conditionalPanel(
                   condition = "input.breakplotting == 'Line Graph'",
+                  h4("Legend"),
                   p("Example text")
                 )
               )
@@ -1605,7 +1682,7 @@ ui <- fluidPage(
                   inputId = "breaknumber",
                   label = "Number of Simulations",
                   value = 10
-                )%>%tagAppendAttributes(id = "breaknumber_species"),
+                )%>%tagAppendAttributes(id = "breaknumber"),
                 selectInput(
                   inputId = "breakname_select",
                   label = "Select a Species:",
@@ -1679,43 +1756,45 @@ ui <- fluidPage(
               value = c(1, 2),
               step = 1,
               width = "100%"
-            ),
-            sliderInput(
-              inputId = "industrial",
-              label = "Commercial",
-              min = 0,
-              max = 2,
-              value = 0,
-              step = 0.1,
-              width = "100%"
-            ),
-            sliderInput(
-              inputId = "pelagic",
-              label = "Pelagic",
-              min = 0,
-              max = 2,
-              value = 1,
-              step = 0.1,
-              width = "100%"
-            ),
-            sliderInput(
-              inputId = "beam",
-              label = "Beam",
-              min = 0,
-              max = 2,
-              value = 1,
-              step = 0.1,
-              width = "100%"
-            ),
-            sliderInput(
-              inputId = "otter",
-              label = "Otter",
-              min = 0,
-              max = 2,
-              value = 1,
-              step = 0.1,
-              width = "100%"
-            ),
+            )%>%tagAppendAttributes(id = "fishyyear"),
+            div(
+              id = "fishery_sliders",
+              sliderInput(
+                inputId = "industrial",
+                label = "Commercial",
+                min = 0,
+                max = 2,
+                value = 0,
+                step = 0.1,
+                width = "100%"
+              ),
+              sliderInput(
+                inputId = "pelagic",
+                label = "Pelagic",
+                min = 0,
+                max = 2,
+                value = 1,
+                step = 0.1,
+                width = "100%"
+              ),
+              sliderInput(
+                inputId = "beam",
+                label = "Beam",
+                min = 0,
+                max = 2,
+                value = 1,
+                step = 0.1,
+                width = "100%"
+              ),
+              sliderInput(
+                inputId = "otter",
+                label = "Otter",
+                min = 0,
+                max = 2,
+                value = 1,
+                step = 0.1,
+                width = "100%"
+              )),
             selectInput(
               inputId = "fish_name_select",
               label = "Select a Species:",
@@ -1723,14 +1802,15 @@ ui <- fluidPage(
                           "Cod", "Haddock", "Whiting", "Blue whiting", "Norway Pout", "Poor Cod", 
                           "European Hake", "Monkfish", "Horse Mackerel", "Mackerel", "Common Dab", 
                           "Plaice", "Megrim", "Sole")
-            )%>%tagAppendAttributes(id = "species_chose"),
+            )%>%tagAppendAttributes(id = "fishy_choose"),
             selectInput(
               inputId = "species_order",
               label = HTML("Species Order on Axis <button id='infoButtonOrder' class='btn btn-info btn-xs' type='button' style='padding-left: 7px;' data-toggle='popover' data-content='Select how you want the species to be ordered on the axis. Options include Alphabetical, Size, and Guild.'><strong>?</strong></button>"),
               choices = c("Alphabetical","Size","Guild")
-            )%>%tagAppendAttributes(id = "select_species"),
+            )%>%tagAppendAttributes(id = "select_species_fishy"),
             actionButton(inputId = "goButton2", label = "Run Simulation")
           )
+          
         ),
         
         # Main Panel for Fishery Strategy
@@ -1738,6 +1818,7 @@ ui <- fluidPage(
           area = "area0",
           card_body(
             tabsetPanel(
+              id="fishy_plots",
               tabPanel(title = "Yield", plotlyOutput("yieldPlot")),
               tabPanel(title = "Species", plotlyOutput("fishspeciesPlot")),
               tabPanel(title = "Size", plotlyOutput("fishsizePlot")),
