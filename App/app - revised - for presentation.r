@@ -908,54 +908,67 @@ server <- function(input, output, session) {
   
   #This section details the fishery strategy tab
   
-  spectra <- eventReactive(input$goButton2,{
+  spectra <- eventReactive(input$goButton2, {
     
+    # Initialize progress bar
+    progress <- shiny::Progress$new()
+    on.exit(progress$close())
+    progress$set(message = "Running simulation...", value = 0)
+    
+    # Step 1: Running the simulation
     speciessim <- celticsim
-    
     effort <- c(commercial = input$industrial, pelagic = input$pelagic, beam = input$beam, otter = input$otter)
+    harvestedprojection <- project(speciessim, effort = effort, t_max = input$fishyear[2] * 2)
     
-    harvestedprojection <- project(speciessim,
-                                   effort = effort,
-                                   t_max = input$fishyear[2]*2)
+    # Update progress (20% complete)
+    progress$inc(amount = 0.2, message = "Calculating size spectrum...")
     
-    #plotting the relative size spectrum
-    
+    # Step 2: Plotting the relative size spectrum
     sizelevel <- plotSpectraRelative(harvestedprojection, unharvestedprojection, input$fishyear[1], input$fishyear[2])
     
+    # Update progress (40% complete)
+    progress$inc(amount = 0.2, message = "Calculating species-level change...")
     
-    #This next section calculates the species level change - across 
-    
+    # Step 3: Calculate species level change
     specieslevel <- plotSpeciesWithTimeRange(harvestedprojection, unharvestedprojection, input$fishyear[1])
     
+    # Update progress (55% complete)
+    progress$inc(amount = 0.15, message = "Calculating guild-level change...")
     
-    #This next section calculates the guilds
-    
+    # Step 4: Calculate guilds
     guildlevel <- guildplot(harvestedprojection, unharvestedprojection, input$fishyear[1])
     
+    # Update progress (70% complete)
+    progress$inc(amount = 0.15, message = "Plotting diet matrix...")
     
-    #now I am plotting the diet matrixes
-    
+    # Step 5: Plot diet matrices
     dietplot <- comparedietmatrix(harvestedprojection, unharvestedprojection, input$fishyear[1])
     
+    # Update progress (85% complete)
+    progress$inc(amount = 0.15, message = "Plotting biomass and diet...")
     
-    #biomass plotting functions
-    
+    # Step 6: Biomass plotting function
     biomass <- plotBiomass(harvestedprojection, start_time = input$fishyear[1], end_time = input$fishyear[2])
     
-    
-    #single species diet function
-    
+    # Step 7: Single species diet function
     dietsingle <- plotDiet(harvestedprojection@params, species = input$fish_name_select)
     
+    # Update progress (100% complete)
+    progress$inc(amount = 0.15, message = "Finalizing...")
     
+    # Return all results as a list
     list(
-      sizelevel = sizelevel, specieslevel = specieslevel, guildlevel = guildlevel, dietplot = dietplot,
+      sizelevel = sizelevel,
+      specieslevel = specieslevel,
+      guildlevel = guildlevel,
+      dietplot = dietplot,
       spectrum = plotlySpectra(harvestedprojection, time_range = input$fishyear[1]:input$fishyear[2]),
       yield = plotlyYield(harvestedprojection),
       biomass = biomass,
       dietsingle = dietsingle
     )
   })
+  
   
   #this is just plotting the outputs of spectra
   output$spectrumPlot <- renderPlotly({
@@ -1647,14 +1660,19 @@ ui <- fluidPage(
             conditionalPanel(
               condition = "input.breakplotting == 'Scrollable Species'",
               h4("Legend"),
-              p("Example text")
+              p("Percentage change in each species across the range of changed biomass values.
+                Repeats one plot for every simulation, said plot has the X axis as the 
+                species, and the Y axis as the percentage change in the species.")
             ),
             
             # Figure legend for the "Size" tab
             conditionalPanel(
               condition = "input.breakplotting == 'Line Graph'",
               h4("Legend"),
-              p("Example text")
+              p("Line graph to show changes in biomass of each species as the starting
+                biomass of the given species is changed. The X axis is the value of the starting biomass, 
+                the Y axis is the % change in biomass in comparison to the unchanged fishing scenario.
+                Each line indicates a different species.")
             )
           )
         )
@@ -1733,14 +1751,19 @@ ui <- fluidPage(
             conditionalPanel(
               condition = "input.breakplotting_mort == 'Scrollable Species'",
               h4("Legend"),
-              p("Example text")
+              p("Percentage change in each species across the range of changed mortality values.
+                Repeats one plot for every simulation, said plot has the X axis as the 
+                species, and the Y axis as the percentage change in the species.")
             ),
             
             # Figure legend for the "Size" tab
             conditionalPanel(
               condition = "input.breakplotting_mort == 'Line Graph'",
               h4("Legend"),
-              p("Example text")
+              p("Line graph to show changes in biomass of each species as the 
+                mortality of the given species is changed. The X axis is the value of the change in mortality, 
+                the Y axis is the % change in biomass in comparison to the unchanged fishing scenario.
+                Each line indicates a different species.")
             )
           )
         )
@@ -1891,38 +1914,45 @@ ui <- fluidPage(
                   left/darkest is 1/2 of the chosen time, middle is the chosen time, brighest is 2x
                   the chosen time.
                     Feeding guilds are groupings of fish based on diet and life stage. ")
-                    )
                     ),
                     
                     # Conditional panel for "Diet"
                     conditionalPanel(
                       condition = "input.fishy_plots == 'Diet'",
                       h4("Legend"),
-                      p("Legend for Diet")
+                      p("Matrix which details the change in proportion of every species in the diet 
+                    of a given predator. The colour indicates whether the proportion of the given 
+                    species has decreased. Blue is increase, red is decrease. It is possible to change
+                    the order of the species shown on the X axis by using the configuration panel.")
                     ),
                     
                     # Conditional panel for "Spectra"
                     conditionalPanel(
                       condition = "input.fishy_plots == 'Spectra'",
                       h4("Legend"),
-                      p("Legend for Spectra")
+                      p("Biomass of a given species across their size range. The Y axis is the 
+                        biomass of the given species, the X axis is the size class of the species, each 
+                        of the lines are a species.")
                     ),
                     
                     # Conditional panel for "Single Diet"
                     conditionalPanel(
                       condition = "input.fishy_plots == 'Single Diet'",
                       h4("Legend"),
-                      p("Legend for Single Diet")
+                      p("The contribution of each species in the diet of a given species across its size range.
+                          The X axis is the size of the predator, and the Y axis is the proportion of the diet
+                        that a given prey species makes up at that given predator size.")
                     ),
                     
                     # Conditional panel for "Biomass"
                     conditionalPanel(
                       condition = "input.fishy_plots == 'Biomass'",
                       h4("Legend"),
-                      p("Legend for Biomass")
+                      p("Biomass of species over time. Color indicates the species, X axis is the time,
+                        Y axis is the value of biomass.")
                     )
                   )
-        )
+           )
       )
     ),
     nav_spacer(),
